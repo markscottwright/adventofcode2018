@@ -2,15 +2,16 @@ package adventofcode2018;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 
@@ -27,6 +28,12 @@ public class Day7 {
                     + "]";
         }
 
+        static List<Day7.Dependency> loadFile(Path dependencyDataFile)
+                throws IOException {
+            return Files.lines(dependencyDataFile).map(Day7.Dependency::parse)
+                    .collect(Collectors.toList());
+        }
+
         public Dependency(String step, String dependency) {
             this.step = step;
             this.dependency = dependency;
@@ -39,42 +46,75 @@ public class Day7 {
         }
     }
 
-    public static void main(String[] args) throws IOException {
-        List<Dependency> dependencies = Files
-                .lines(Paths.get("data", "day7.txt")).map(Dependency::parse)
-                .collect(Collectors.toList());
+    /**
+     * A class that keeps track of dependency graph, steps remaining and steps
+     * completeds.
+     * 
+     * @author wrightm
+     *
+     */
+    static class SledBuildScheduler {
+        private Multimap<String, String> stepToDependencies = MultimapBuilder
+                .hashKeys().hashSetValues().build();
+        private HashSet<String> stepsRemaining = new HashSet<>();
+        private HashSet<String> completedSteps = new HashSet<>();
+        private HashSet<String> stepsInProgress = new HashSet<>();
+        private String stepOrder = "";
 
-        String stepOrder = determineCompletionOrder(dependencies);
-        System.out.println(stepOrder);
-    }
+        public SledBuildScheduler(List<Dependency> dependencies) {
+            for (Dependency d : dependencies) {
+                stepToDependencies.put(d.step, d.dependency);
 
-    static String determineCompletionOrder(List<Dependency> dependencies) {
-        Multimap<String, String> stepToDependencies = MultimapBuilder.hashKeys()
-                .hashSetValues().build();
-        HashSet<String> stepsRemaining = new HashSet<>();
-        for (Dependency d : dependencies) {
-            stepToDependencies.put(d.step, d.dependency);
-
-            // keep track of all possible steps and dependencies
-            stepsRemaining.add(d.step);
-            stepsRemaining.add(d.dependency);
+                // keep track of all possible steps and dependencies
+                stepsRemaining.add(d.step);
+                stepsRemaining.add(d.dependency);
+            }
         }
 
-        String stepOrder = "";
-        HashSet<String> completedSteps = new HashSet<>();
-        while (stepsRemaining.size() > 0) {
+        public String getStepOrder() {
+            return stepOrder;
+        }
+
+        public boolean isComplete() {
+            return stepsRemaining.size() == 0 && stepsInProgress.size() == 0;
+        }
+
+        public void complete(String step) {
+            stepsInProgress.remove(step);
+            completedSteps.add(step);
+        }
+
+        public Optional<String> nextStep() {
+            assert !isComplete();
+
             TreeSet<String> stepsWithFufilledDependencies = new TreeSet<>();
             for (String step : stepsRemaining) {
                 if (completedSteps.containsAll(stepToDependencies.get(step))) {
                     stepsWithFufilledDependencies.add(step);
                 }
             }
+            if (stepsWithFufilledDependencies.isEmpty())
+                return Optional.empty();
             String stepToComplete = stepsWithFufilledDependencies.first();
-            System.out.println(stepToComplete);
             stepOrder += stepToComplete;
             stepsRemaining.remove(stepToComplete);
-            completedSteps.add(stepToComplete);
+            stepsInProgress.add(stepToComplete);
+
+            return Optional.of(stepToComplete);
         }
-        return stepOrder;
+
+        /** run to completion */
+        public String build() {
+            while (!isComplete())
+                complete(nextStep().get());
+            return getStepOrder();
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
+        Path dependencyDataFile = Paths.get("data", "day7.txt");
+        List<Dependency> dependencies = Dependency.loadFile(dependencyDataFile);
+        var scheduler = new SledBuildScheduler(dependencies);
+        System.out.println(scheduler.build());
     }
 }
