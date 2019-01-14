@@ -75,13 +75,4 @@ public class Day6Part2 {
         return area;
 
     }
-
-    private static Area areaAround(Coordinate sampleCoordinate, int n) {
-        Area area = new Area();
-        area.xMin = sampleCoordinate.x - n;
-        area.xMax = sampleCoordinate.x + n;
-        area.yMin = sampleCoordinate.y - n;
-        area.yMax = sampleCoordinate.y + n;
-        return area;
-    }
 }

@@ -1,13 +1,10 @@
 package adventofcode2018;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.util.ArrayList;
-import java.util.Collections;
 
 import org.junit.Test;
-
-import com.google.common.collect.Lists;
 
 import adventofcode2018.Day7.Dependency;
 
