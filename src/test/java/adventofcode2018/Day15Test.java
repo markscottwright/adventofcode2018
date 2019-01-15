@@ -7,6 +7,7 @@ import java.io.PrintStream;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -18,7 +19,7 @@ import org.junit.Test;
 import adventofcode2018.Day15.Arena;
 import adventofcode2018.Day15.Combatant;
 import adventofcode2018.Day15.Combatant.Type;
-import adventofcode2018.Day15.MapPoint;
+import adventofcode2018.Day15.Point;
 
 public class Day15Test {
 
@@ -35,17 +36,17 @@ public class Day15Test {
         Assert.assertEquals(0, arena.numElves());
         Assert.assertEquals(0, arena.numGoblins());
         assertEquals(2,
-                new Day15.MapPoint(1, 1).emptyNeighbors(arena.getMap()).size());
+                new Day15.Point(1, 1).emptyNeighbors(arena.getMap()).size());
         assertEquals(3,
-                new Day15.MapPoint(2, 1).emptyNeighbors(arena.getMap()).size());
+                new Day15.Point(2, 1).emptyNeighbors(arena.getMap()).size());
 
         ArrayList<String> lines2 = new ArrayList<>();
         lines2.add("...");
         Arena arena2 = Day15.Arena.parse(lines2);
-        assertEquals(1, new Day15.MapPoint(0, 0).emptyNeighbors(arena2.getMap())
-                .size());
-        assertEquals(2, new Day15.MapPoint(1, 0).emptyNeighbors(arena2.getMap())
-                .size());
+        assertEquals(1,
+                new Day15.Point(0, 0).emptyNeighbors(arena2.getMap()).size());
+        assertEquals(2,
+                new Day15.Point(1, 0).emptyNeighbors(arena2.getMap()).size());
     }
 
     @Test
@@ -74,18 +75,18 @@ public class Day15Test {
 
         Arena arena = Day15.Arena.parse(Arrays.asList(lines2));
 
-        List<MapPoint> emptySpaces = empySpacesAdjacentToEnemyOfType(Type.ELF,
+        List<Point> emptySpaces = empySpacesAdjacentToEnemyOfType(Type.ELF,
                 arena, arena.getCombatants());
         assertEquals(2, emptySpaces.size());
     }
 
-    static List<MapPoint> empySpacesAdjacentToEnemyOfType(Type enemyType,
+    static List<Point> empySpacesAdjacentToEnemyOfType(Type enemyType,
             Arena arena, TreeSet<Combatant> currentCombatants) {
-        Set<MapPoint> occupiedSpaces = currentCombatants.stream()
+        Set<Point> occupiedSpaces = currentCombatants.stream()
                 .map(Combatant::getPoint).collect(Collectors.toSet());
-        TreeSet<MapPoint> spaces = arena
-                .nonWallSquaresAdjacentToEnemyOf(enemyType, currentCombatants);
-        List<MapPoint> emptySpaces = spaces.stream()
+        TreeSet<Point> spaces = arena.nonWallSquaresAdjacentToEnemyOf(enemyType,
+                currentCombatants);
+        List<Point> emptySpaces = spaces.stream()
                 .filter(p -> !occupiedSpaces.contains(p))
                 .collect(Collectors.toList());
         return emptySpaces;
@@ -103,13 +104,12 @@ public class Day15Test {
         //@formatter:on
 
         Arena arena = parseString(lines);
-        TreeSet<MapPoint> adjacentSquares = arena
-                .nonWallSquaresAdjacentToEnemyOf(Type.ELF,
-                        arena.getCombatants());
+        TreeSet<Point> adjacentSquares = arena.nonWallSquaresAdjacentToEnemyOf(
+                Type.ELF, arena.getCombatants());
         assertEquals(6, adjacentSquares.size());
-        MapPoint point = Arena.firstStepTowardsNearestOf(arena.getMap(),
-                arena.getCombatants(), new MapPoint(1, 1), adjacentSquares);
-        assertEquals(new MapPoint(2, 1), point);
+        Point point = Arena.firstStepTowardsNearestOf(arena.getMap(),
+                arena.getCombatants(), new Point(1, 1), adjacentSquares);
+        assertEquals(new Point(2, 1), point);
 
         arena.printGrid(arena.getCombatants(), System.out);
     }
@@ -156,5 +156,40 @@ public class Day15Test {
             arena.printGrid(arena.getCombatants(), out);
         }
         return gridStringStream.toString();
+    }
+
+    @Test
+    public void testSampleAttack() throws Exception {
+        //@formatter:off
+        var arena = parseString(
+                "G....\r\n" + 
+                "..G..\r\n" + 
+                "..EG.\r\n" + 
+                "..G..\r\n" + 
+                "...G.\r\n"); 
+        //@formatter:on
+
+        // assign hit points per test data
+        TreeSet<Combatant> fixedHitPoints = new TreeSet<>();
+        Iterator<Combatant> it = arena.getCombatants().iterator();
+        Combatant c = it.next();
+        fixedHitPoints.add(new Combatant(c.type, c.point.x, c.point.y, 9));
+        c = it.next();
+        fixedHitPoints.add(new Combatant(c.type, c.point.x, c.point.y, 4));
+        Combatant elf = it.next();
+        c = it.next();
+        fixedHitPoints.add(new Combatant(c.type, c.point.x, c.point.y, 2));
+        c = it.next();
+        fixedHitPoints.add(new Combatant(c.type, c.point.x, c.point.y, 2));
+        c = it.next();
+        fixedHitPoints.add(new Combatant(c.type, c.point.x, c.point.y, 1));
+
+        assertEquals(Type.ELF, elf.type);
+
+        Combatant attackedGnome = elf
+                .attack(elf.adjacentEnemies(fixedHitPoints));
+        assertTrue(attackedGnome.isDead());
+        assertEquals(3, attackedGnome.point.x);
+        assertEquals(2, attackedGnome.point.y);
     }
 }

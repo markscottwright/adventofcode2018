@@ -16,18 +16,18 @@ import java.util.stream.Collectors;
 import adventofcode2018.Day15.Combatant.Type;
 
 public class Day15 {
-    public static class MapPoint implements Comparable<MapPoint> {
+    public static class Point implements Comparable<Point> {
 
-        private int x;
-        private int y;
+        final int x;
+        final int y;
 
-        public MapPoint(int x, int y) {
+        public Point(int x, int y) {
             this.x = x;
             this.y = y;
         }
 
         @Override
-        public int compareTo(MapPoint o) {
+        public int compareTo(Point o) {
             if (y < o.y || (y == o.y && x < o.x))
                 return -1;
             else if (y == o.y && x == o.x)
@@ -35,22 +35,28 @@ public class Day15 {
             return 1;
         }
 
-        TreeSet<MapPoint> emptyNeighbors(char[][] grid) {
-            TreeSet<MapPoint> squares = new TreeSet<>();
+        TreeSet<Point> emptyNeighbors(char[][] grid) {
+            TreeSet<Point> squares = new TreeSet<>();
             if (x > 0 && grid[x - 1][y] == '.')
-                squares.add(new MapPoint(x - 1, y));
+                squares.add(new Point(x - 1, y));
             if (x < grid.length - 1 && grid[x + 1][y] == '.')
-                squares.add(new MapPoint(x + 1, y));
+                squares.add(new Point(x + 1, y));
             if (y > 0 && grid[x][y - 1] == '.')
-                squares.add(new MapPoint(x, y - 1));
+                squares.add(new Point(x, y - 1));
             if (y < grid[x].length - 1 && grid[x][y + 1] == '.')
-                squares.add(new MapPoint(x, y + 1));
+                squares.add(new Point(x, y + 1));
             return squares;
         }
 
-        boolean isAdjacent(MapPoint p) {
-            return p.x == x && p.y == y - 1 || p.x == x && p.y == y + 1
-                    || p.x == x - 1 && p.y == y || p.x + 1 == x && p.y == y;
+        boolean isAdjacent(Point p) {
+            //@formatter:off
+            boolean isAdjacent = 
+                       p.x == x && p.y == y - 1 
+                    || p.x == x && p.y == y + 1
+                    || p.x == x - 1 && p.y == y 
+                    || p.x == x + 1 && p.y == y;
+            //@formatter:on
+            return isAdjacent;
         }
 
         @Override
@@ -75,7 +81,7 @@ public class Day15 {
                 return false;
             if (getClass() != obj.getClass())
                 return false;
-            MapPoint other = (MapPoint) obj;
+            Point other = (Point) obj;
             if (x != other.x)
                 return false;
             if (y != other.y)
@@ -100,12 +106,12 @@ public class Day15 {
         private static final int HIT_POWER = 3;
 
         final Type type;
-        final MapPoint point;
+        final Point point;
         final int hitPoints;
 
         public Combatant(Type type, int x, int y, int hitPoints) {
             this.type = type;
-            this.point = new MapPoint(x, y);
+            this.point = new Point(x, y);
             this.hitPoints = hitPoints;
         }
 
@@ -120,9 +126,7 @@ public class Day15 {
             return getPoint().compareTo(o.getPoint());
         }
 
-        MapPoint getPoint() {
-            return point;
-        }
+        Point getPoint() { return point; }
 
         public TreeSet<Combatant> adjacentEnemies(
                 TreeSet<Combatant> combatants) {
@@ -155,11 +159,9 @@ public class Day15 {
                     Math.max(0, hitPoints - hitPower));
         }
 
-        public boolean isDead() {
-            return hitPoints <= 0;
-        }
+        public boolean isDead() { return hitPoints <= 0; }
 
-        public Combatant moveTo(MapPoint p) {
+        public Combatant moveTo(Point p) {
             return new Combatant(type, p.x, p.y, hitPoints);
         }
     }
@@ -174,14 +176,14 @@ public class Day15 {
         }
 
         void printGrid(TreeSet<Combatant> combatants, PrintStream out) {
-            TreeMap<MapPoint, Character> combatantPositions = new TreeMap<>();
+            TreeMap<Point, Character> combatantPositions = new TreeMap<>();
             for (Combatant c : combatants)
                 combatantPositions.put(c.getPoint(),
                         c.type.equals(Type.ELF) ? 'E' : 'G');
             for (int y = 0; y < map[0].length; ++y) {
                 for (int x = 0; x < map.length; ++x) {
                     Character combatant = combatantPositions
-                            .get(new MapPoint(x, y));
+                            .get(new Point(x, y));
                     if (combatant == null)
                         out.print(map[x][y]);
                     else
@@ -243,7 +245,6 @@ public class Day15 {
                 if (!remainingCombatants.contains(c))
                     continue;
 
-                System.out.println("Handing:" + c);
                 TreeSet<Combatant> adjacentEnemies = c
                         .adjacentEnemies(remainingCombatants);
 
@@ -259,62 +260,51 @@ public class Day15 {
 
                 // no enemies nearby, move towards one
                 else {
-                    TreeSet<MapPoint> possibleDestinations = nonWallSquaresAdjacentToEnemyOf(
+                    TreeSet<Point> possibleDestinations = nonWallSquaresAdjacentToEnemyOf(
                             c.type, remainingCombatants);
-                    System.out.println("Might go to: " + possibleDestinations);
-                    MapPoint p = firstStepTowardsNearestOf(map,
+                    Point p = firstStepTowardsNearestOf(map,
                             remainingCombatants, c.getPoint(),
                             possibleDestinations);
-                    System.out.println("First step: " + p);
                     if (p != null) {
                         remainingCombatants.remove(c);
                         remainingCombatants.add(c.moveTo(p));
                     }
                 }
-
-                // var adjacentEnemies = adjacentEnemiesOfType(c.type, c.x, c.y)
-                // if (adjacentEnemies.size() > 0) {killed = attack;
-                // pending.remove(killed); done.remove(killed);}
-                // var possibleDestinations =
-                // emptySquaresAdjacentToCombatantType(c.type)
-                // var shortestRoute =
-                // firstStepsOfShortestRouteToOneOf(possibleDestinations, c.x,
-                // c.y)
             }
-            
+
             combatants = remainingCombatants;
         }
 
-        public static MapPoint firstStepTowardsNearestOf(char[][] map,
-                TreeSet<Combatant> remainingCombatants, MapPoint startingPoint,
-                TreeSet<MapPoint> possibleDestinations) {
+        public static Point firstStepTowardsNearestOf(char[][] map,
+                TreeSet<Combatant> remainingCombatants, Point startingPoint,
+                TreeSet<Point> possibleDestinations) {
 
             // keep track of where all combatants are, since they block our path
-            TreeSet<MapPoint> combatantPositions = remainingCombatants.stream()
+            TreeSet<Point> combatantPositions = remainingCombatants.stream()
                     .map(Combatant::getPoint)
                     .collect(Collectors.toCollection(TreeSet::new));
 
             // keep track of the path to a point
-            TreeMap<MapPoint, ArrayList<MapPoint>> pathTo = new TreeMap<>();
+            TreeMap<Point, ArrayList<Point>> pathTo = new TreeMap<>();
 
             // next step in BFS algorithm
-            Queue<MapPoint> toVisit = new LinkedList<>();
+            Queue<Point> toVisit = new LinkedList<>();
 
             // populate the toVisit queue and the first step map with the
             // neighbors of startingPoint
             startingPoint.emptyNeighbors(map).stream()
                     .filter(p -> !combatantPositions.contains(p)).forEach(p -> {
-                        var pathToP = new ArrayList<MapPoint>();
+                        var pathToP = new ArrayList<Point>();
                         pathToP.add(p);
                         pathTo.put(p, pathToP);
                         toVisit.add(p);
                     });
 
-            HashSet<ArrayList<MapPoint>> candidatePaths = new HashSet<>();
+            HashSet<ArrayList<Point>> candidatePaths = new HashSet<>();
             while (!toVisit.isEmpty()) {
-                MapPoint step = toVisit.remove();
+                Point step = toVisit.remove();
 
-                ArrayList<MapPoint> firstStepTowardsCurrent = pathTo.get(step);
+                ArrayList<Point> firstStepTowardsCurrent = pathTo.get(step);
                 if (candidatePaths.size() > 0 && candidatePaths.iterator()
                         .next().size() < firstStepTowardsCurrent.size()) {
                     // we have found a least one path shorter than the one we're
@@ -353,8 +343,8 @@ public class Day15 {
                 return null;
 
             // found a path. Return best "first step"
-            TreeSet<MapPoint> firstSteps = new TreeSet<>();
-            for (ArrayList<MapPoint> path : candidatePaths)
+            TreeSet<Point> firstSteps = new TreeSet<>();
+            for (ArrayList<Point> path : candidatePaths)
                 firstSteps.add(path.get(0));
 
             return firstSteps.first();
@@ -364,9 +354,10 @@ public class Day15 {
             return (int) pending.stream().filter(c -> c.type == t).count();
         }
 
-        TreeSet<MapPoint> nonWallSquaresAdjacentToEnemyOf(Type t, TreeSet<Combatant> currentCombatants) {
+        TreeSet<Point> nonWallSquaresAdjacentToEnemyOf(Type t,
+                TreeSet<Combatant> currentCombatants) {
             Type enemyType = t == Type.ELF ? Type.GOBLIN : Type.ELF;
-            TreeSet<MapPoint> adjacentPoints = new TreeSet<>();
+            TreeSet<Point> adjacentPoints = new TreeSet<>();
             currentCombatants.stream().filter(c -> c.type == enemyType)
                     .map(Combatant::getPoint)
                     .flatMap(p -> p.emptyNeighbors(map).stream())
@@ -374,13 +365,9 @@ public class Day15 {
             return adjacentPoints;
         }
 
-        public char[][] getMap() {
-            return map;
-        }
+        public char[][] getMap() { return map; }
 
-        public TreeSet<Combatant> getCombatants() {
-            return combatants;
-        }
+        public TreeSet<Combatant> getCombatants() { return combatants; }
     }
 
     public static void main(String[] args) throws IOException {
