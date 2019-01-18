@@ -5,6 +5,7 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
+import adventofcode2018.Day15.Combatant;
 import adventofcode2018.Day15.Combatant.Type;
 
 public class Day15 {
@@ -91,7 +93,7 @@ public class Day15 {
 
     }
 
-    public static class Combatant implements Comparable<Combatant> {
+    public static class Combatant {
         enum Type {
             GOBLIN, ELF;
 
@@ -106,8 +108,8 @@ public class Day15 {
         private static final int HIT_POWER = 3;
 
         final Type type;
-        final Point point;
-        final int hitPoints;
+        private Point point;
+        private int hitPoints;
 
         public Combatant(Type type, int x, int y, int hitPoints) {
             this.type = type;
@@ -121,21 +123,23 @@ public class Day15 {
                     + ", hitPoints=" + hitPoints + "]";
         }
 
-        @Override
-        public int compareTo(Combatant o) {
-            return getPoint().compareTo(o.getPoint());
-        }
-
-        Point getPoint() { return point; }
-
-        public TreeSet<Combatant> adjacentEnemies(
-                TreeSet<Combatant> combatants) {
-            return combatants.stream().filter(c -> !c.type.equals(type))
+        public List<Combatant> adjacentEnemies(
+                ArrayList<Combatant> combatants) {
+            var orderdCombatants = readingOrder(combatants);
+            return orderdCombatants.stream().filter(c -> !c.type.equals(type))
                     .filter(c -> getPoint().isAdjacent(c.getPoint()))
-                    .collect(Collectors.toCollection(TreeSet::new));
+                    .collect(Collectors.toList());
         }
 
-        public Combatant attack(TreeSet<Combatant> adjacentEnemies) {
+        public static ArrayList<Combatant> readingOrder(
+                Collection<Combatant> combatants) {
+            var ordered = new ArrayList<>(combatants);
+            ordered.sort((c1, c2) -> c1.getPoint().compareTo(c2.getPoint()));
+            return ordered;
+        }
+
+        public Combatant selectCombatantToAttack(
+                Collection<Combatant> adjacentEnemies) {
             ArrayList<Combatant> orderedAdjacentEnemies = new ArrayList<>(
                     adjacentEnemies);
             orderedAdjacentEnemies.sort((e1, e2) -> {
@@ -147,35 +151,41 @@ public class Day15 {
                     return e1.point.compareTo(e2.point);
             });
 
-            if (orderedAdjacentEnemies.size() == 0)
-                return null;
-            else {
-                return orderedAdjacentEnemies.get(0).hit(HIT_POWER);
-            }
+            return orderedAdjacentEnemies.get(0);
         }
 
-        private Combatant hit(int hitPower) {
-            return new Combatant(type, point.x, point.y,
-                    Math.max(0, hitPoints - hitPower));
+        private void hit(int hitPower) {
+            hitPoints = Math.max(0, hitPoints - hitPower);
+        }
+
+        public void takeDamage() {
+            hit(HIT_POWER);
         }
 
         public boolean isDead() { return hitPoints <= 0; }
 
-        public Combatant moveTo(Point p) {
-            return new Combatant(type, p.x, p.y, hitPoints);
+        public void moveTo(Point p) {
+            point = p;
         }
+
+        public Point getPoint() { return point; }
+
+        public void setPoint(Point point) { this.point = point; }
+
+        public int getHitPoints() { return hitPoints; }
     }
 
     public static class Arena {
-        private TreeSet<Combatant> combatants;
+        private ArrayList<Combatant> combatants;
         final private char[][] map;
+        private int roundsTaken = 0;
 
-        public Arena(char[][] map, TreeSet<Combatant> combatants) {
+        public Arena(char[][] map, ArrayList<Combatant> combatants) {
             this.combatants = combatants;
             this.map = map;
         }
 
-        void printGrid(TreeSet<Combatant> combatants, PrintStream out) {
+        void printGrid(ArrayList<Combatant> combatants, PrintStream out) {
             TreeMap<Point, Character> combatantPositions = new TreeMap<>();
             for (Combatant c : combatants)
                 combatantPositions.put(c.getPoint(),
@@ -198,7 +208,7 @@ public class Day15 {
                     .collect(Collectors.maxBy(Integer::compare)).get();
             int maxY = readAllLines.size();
 
-            TreeSet<Combatant> combatants = new TreeSet<>();
+            ArrayList<Combatant> combatants = new ArrayList<>();
             char[][] map = new char[maxX][maxY];
             for (int x = 0; x < maxX; ++x) {
                 for (int y = 0; y < maxY; ++y) {
@@ -232,51 +242,51 @@ public class Day15 {
         }
 
         void takeTurn() {
-            TreeSet<Combatant> pending = new TreeSet<>(combatants);
-            TreeSet<Combatant> remainingCombatants = new TreeSet<>(pending);
-
+            ArrayList<Combatant> pending = Combatant.readingOrder(combatants);
             for (Combatant c : pending) {
-                if (numOfType(Type.GOBLIN, pending) == 0
-                        || numOfType(Type.ELF, pending) == 0) {
-                    return;
-                }
 
-                // this combatant was killed
-                if (!remainingCombatants.contains(c))
+                // return before completing the round if there are no combatants
+                // left
+                if (combatComplete())
+                    return;
+
+                if (c.isDead())
                     continue;
 
-                TreeSet<Combatant> adjacentEnemies = c
-                        .adjacentEnemies(remainingCombatants);
-
-                // there are enemies nearby - attack
-                if (adjacentEnemies.size() > 0) {
-                    Combatant attackedCombatant = c.attack(adjacentEnemies);
-                    if (attackedCombatant != null) {
-                        remainingCombatants.remove(attackedCombatant);
-                        if (!attackedCombatant.isDead())
-                            remainingCombatants.add(attackedCombatant);
+                // if there are no adjacent enemies, move towards one
+                List<Combatant> adjacentEnemies = c.adjacentEnemies(combatants);
+                if (adjacentEnemies.size() == 0) {
+                    TreeSet<Point> possibleDestinations = nonWallSquaresAdjacentToEnemyOf(
+                            c.type, combatants);
+                    Point p = firstStepTowardsNearestOf(map, combatants,
+                            c.getPoint(), possibleDestinations);
+                    if (p != null) {
+                        c.moveTo(p);
                     }
                 }
 
-                // no enemies nearby, move towards one
-                else {
-                    TreeSet<Point> possibleDestinations = nonWallSquaresAdjacentToEnemyOf(
-                            c.type, remainingCombatants);
-                    Point p = firstStepTowardsNearestOf(map,
-                            remainingCombatants, c.getPoint(),
-                            possibleDestinations);
-                    if (p != null) {
-                        remainingCombatants.remove(c);
-                        remainingCombatants.add(c.moveTo(p));
-                    }
+                // if there are adjacent enemies, attack
+                adjacentEnemies = c.adjacentEnemies(combatants);
+                if (adjacentEnemies.size() > 0) {
+                    Combatant combatantToAttack = c
+                            .selectCombatantToAttack(adjacentEnemies);
+                    combatantToAttack.takeDamage();
+                    if (combatantToAttack.isDead())
+                        combatants.remove(combatantToAttack);
                 }
             }
 
-            combatants = remainingCombatants;
+            // only increment if a "full round" was taken
+            roundsTaken++;
+        }
+
+        public boolean combatComplete() {
+            return numOfType(Type.GOBLIN, combatants) == 0
+                    || numOfType(Type.ELF, combatants) == 0;
         }
 
         public static Point firstStepTowardsNearestOf(char[][] map,
-                TreeSet<Combatant> remainingCombatants, Point startingPoint,
+                ArrayList<Combatant> remainingCombatants, Point startingPoint,
                 TreeSet<Point> possibleDestinations) {
 
             // keep track of where all combatants are, since they block our path
@@ -350,12 +360,12 @@ public class Day15 {
             return firstSteps.first();
         }
 
-        static private int numOfType(Type t, TreeSet<Combatant> pending) {
+        static private int numOfType(Type t, Collection<Combatant> pending) {
             return (int) pending.stream().filter(c -> c.type == t).count();
         }
 
         TreeSet<Point> nonWallSquaresAdjacentToEnemyOf(Type t,
-                TreeSet<Combatant> currentCombatants) {
+                ArrayList<Combatant> currentCombatants) {
             Type enemyType = t == Type.ELF ? Type.GOBLIN : Type.ELF;
             TreeSet<Point> adjacentPoints = new TreeSet<>();
             currentCombatants.stream().filter(c -> c.type == enemyType)
@@ -367,7 +377,16 @@ public class Day15 {
 
         public char[][] getMap() { return map; }
 
-        public TreeSet<Combatant> getCombatants() { return combatants; }
+        public ArrayList<Combatant> getCombatants() {
+            return Combatant.readingOrder(combatants);
+        }
+
+        public int getRoundsTaken() { return roundsTaken; }
+
+        public int totalHitPoints() {
+            return getCombatants().stream().mapToInt(Combatant::getHitPoints)
+                    .sum();
+        }
     }
 
     public static void main(String[] args) throws IOException {

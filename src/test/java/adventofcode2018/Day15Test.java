@@ -1,10 +1,10 @@
 package adventofcode2018;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -81,7 +81,7 @@ public class Day15Test {
     }
 
     static List<Point> empySpacesAdjacentToEnemyOfType(Type enemyType,
-            Arena arena, TreeSet<Combatant> currentCombatants) {
+            Arena arena, ArrayList<Combatant> currentCombatants) {
         Set<Point> occupiedSpaces = currentCombatants.stream()
                 .map(Combatant::getPoint).collect(Collectors.toSet());
         TreeSet<Point> spaces = arena.nonWallSquaresAdjacentToEnemyOf(enemyType,
@@ -170,26 +170,122 @@ public class Day15Test {
         //@formatter:on
 
         // assign hit points per test data
-        TreeSet<Combatant> fixedHitPoints = new TreeSet<>();
+        ArrayList<Combatant> fixedHitPoints = new ArrayList<>();
         Iterator<Combatant> it = arena.getCombatants().iterator();
         Combatant c = it.next();
-        fixedHitPoints.add(new Combatant(c.type, c.point.x, c.point.y, 9));
+        fixedHitPoints
+                .add(new Combatant(c.type, c.getPoint().x, c.getPoint().y, 9));
         c = it.next();
-        fixedHitPoints.add(new Combatant(c.type, c.point.x, c.point.y, 4));
+        fixedHitPoints
+                .add(new Combatant(c.type, c.getPoint().x, c.getPoint().y, 4));
         Combatant elf = it.next();
         c = it.next();
-        fixedHitPoints.add(new Combatant(c.type, c.point.x, c.point.y, 2));
+        fixedHitPoints
+                .add(new Combatant(c.type, c.getPoint().x, c.getPoint().y, 2));
         c = it.next();
-        fixedHitPoints.add(new Combatant(c.type, c.point.x, c.point.y, 2));
+        fixedHitPoints
+                .add(new Combatant(c.type, c.getPoint().x, c.getPoint().y, 2));
         c = it.next();
-        fixedHitPoints.add(new Combatant(c.type, c.point.x, c.point.y, 1));
+        fixedHitPoints
+                .add(new Combatant(c.type, c.getPoint().x, c.getPoint().y, 1));
 
         assertEquals(Type.ELF, elf.type);
 
         Combatant attackedGnome = elf
-                .attack(elf.adjacentEnemies(fixedHitPoints));
+                .selectCombatantToAttack(elf.adjacentEnemies(fixedHitPoints));
+        attackedGnome.takeDamage();
         assertTrue(attackedGnome.isDead());
-        assertEquals(3, attackedGnome.point.x);
-        assertEquals(2, attackedGnome.point.y);
+        assertEquals(3, attackedGnome.getPoint().x);
+        assertEquals(2, attackedGnome.getPoint().y);
+    }
+
+    @Test
+    public void testSampleCombat() {
+        //@formatter:off
+        var arena = parseString(
+                "#######\n" + 
+                "#.G...#\n" + 
+                "#...EG#\n" + 
+                "#.#.#G#\n" + 
+                "#..G#E#\n" + 
+                "#.....#\n" + 
+                "#######\n"); 
+        //@formatter:on
+
+        while (!arena.combatComplete())
+            arena.takeTurn();
+
+        assertEquals(47, arena.getRoundsTaken());
+        assertEquals(590, arena.totalHitPoints());
+    }
+
+    @Test
+    public void testSampleCombat2() {
+        //@formatter:off
+        var arena = parseString(
+                "#######\n" + 
+                "#G..#E#\n" + 
+                "#E#E.E#\n" + 
+                "#G.##.#\n" + 
+                "#...#E#\n" + 
+                "#...E.#\n" + 
+                "#######\n" 
+                );
+        //@formatter:on
+        
+        while (!arena.combatComplete())
+            arena.takeTurn();
+        
+        assertEquals(37, arena.getRoundsTaken());
+        assertEquals(982, arena.totalHitPoints());
+    }
+    
+    @Test
+    public void testSampleCombat3() {
+        //@formatter:off
+        var arena = parseString(
+                "#######\n" + 
+                "#E..EG#\n" + 
+                "#.#G.E#\n" + 
+                "#E.##E#\n" + 
+                "#G..#.#\n" + 
+                "#..E#.#\n" + 
+                "#######\n"  
+                );
+        //@formatter:on
+        
+        while (!arena.combatComplete())
+            arena.takeTurn();
+        
+        assertEquals(46, arena.getRoundsTaken());
+        assertEquals(859, arena.totalHitPoints());
+    }
+    
+    @Test
+    public void testSampleCombat4() {
+        //@formatter:off
+        var arena = parseString(
+                "#######\n" + 
+                "#.E...#\n" + 
+                "#.#..G#\n" + 
+                "#.###.#\n" + 
+                "#E#G#G#\n" + 
+                "#...#G#\n" + 
+                "#######\n"  
+                );
+        //@formatter:on
+        
+        while (!arena.combatComplete())
+            arena.takeTurn();
+        
+        assertEquals(54, arena.getRoundsTaken());
+        assertEquals(536, arena.totalHitPoints());
+    }
+
+    private void printGridState(Arena arena) {
+        System.out.println("round:" + arena.getRoundsTaken());
+        arena.printGrid(arena.getCombatants(), System.out);
+        arena.getCombatants().stream().forEach(c -> System.out
+                .println(c.type + "(" + c.getHitPoints() + ") "));
     }
 }
