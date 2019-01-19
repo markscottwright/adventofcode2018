@@ -188,7 +188,8 @@ public class Day15 {
             ArrayList<Combatant> combatantsCopy = combatants.stream()
                     .map(c -> new Combatant(c.type, c.point.x, c.point.y,
                             c.hitPoints,
-                            c.type.equals(Type.ELF) ? elfAttackPower : c.attackPower))
+                            c.type.equals(Type.ELF) ? elfAttackPower
+                                    : c.attackPower))
                     .collect(Collectors.toCollection(ArrayList::new));
             return new Arena(map, combatantsCopy);
         }
@@ -341,13 +342,13 @@ public class Day15 {
                         toVisit.add(p);
                     });
 
-            HashSet<ArrayList<Point>> candidatePaths = new HashSet<>();
+            TreeMap<Point, ArrayList<Point>> candidatePaths = new TreeMap<>();
             while (!toVisit.isEmpty()) {
                 Point step = toVisit.remove();
 
                 ArrayList<Point> firstStepTowardsCurrent = pathTo.get(step);
-                if (candidatePaths.size() > 0 && candidatePaths.iterator()
-                        .next().size() < firstStepTowardsCurrent.size()) {
+                if (candidatePaths.size() > 0 && candidatePaths.firstEntry()
+                        .getValue().size() < firstStepTowardsCurrent.size()) {
                     // we have found a least one path shorter than the one we're
                     // working on, we're done.
                     break;
@@ -355,7 +356,7 @@ public class Day15 {
 
                 // found a path to a possible destination
                 if (possibleDestinations.contains(step)) {
-                    candidatePaths.add(firstStepTowardsCurrent);
+                    candidatePaths.put(step, firstStepTowardsCurrent);
                 }
 
                 // move from here
@@ -383,12 +384,8 @@ public class Day15 {
             if (candidatePaths.size() == 0)
                 return null;
 
-            // found a path. Return best "first step"
-            TreeSet<Point> firstSteps = new TreeSet<>();
-            for (ArrayList<Point> path : candidatePaths)
-                firstSteps.add(path.get(0));
-
-            return firstSteps.first();
+            // found a path. Return first step towards "best" destination
+            return candidatePaths.firstEntry().getValue().get(0);
         }
 
         static private int numOfType(Type t, Collection<Combatant> pending) {
@@ -431,36 +428,13 @@ public class Day15 {
         List<String> mapLines = Files
                 .readAllLines(Paths.get("data", "day15.txt"));
         Arena arena = Arena.parse(mapLines);
-        final int maxElves = arena.numElves();
-
         while (!arena.combatComplete())
             arena.takeTurn();
         System.out.println(arena.getRoundsTaken());
         System.out.println(arena.totalHitPoints());
-        System.out.println(arena.totalHitPoints() * arena.getRoundsTaken());
-
-        for (int i = 4; i < 500; ++i) {
-            arena = Arena.parse(mapLines, i);
-            while (!arena.combatComplete()) {
-                System.out.println(i + ":" + arena.numElves());
-                arena.takeTurn();
-            }
-            System.out.println(arena.numElves());
-            System.out.println(maxElves);
-            if (arena.numElves() == maxElves) {
-                System.out.println("Part two:");
-                System.out.println(i);
-                System.out.println(arena.getRoundsTaken());
-                System.out.println(arena.totalHitPoints());
-                System.out.println(
-                        arena.totalHitPoints() * arena.getRoundsTaken());
-                System.out.println(
-                        arena.totalHitPoints() * (arena.getRoundsTaken() - 1));
-                break;
-            }
-        }
+        System.out.println("part one:" + (arena.totalHitPoints() * arena.getRoundsTaken()));
         
         arena = Arena.parse(mapLines);
-        System.out.println(Arena.outcomeWithNoElfLosses(arena));
+        System.out.println("part two:" + Arena.outcomeWithNoElfLosses(arena));
     }
 }
