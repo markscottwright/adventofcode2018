@@ -6,7 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -14,7 +13,6 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import adventofcode2018.Day15.Arena;
 import adventofcode2018.Day15.Combatant.Type;
 
 public class Day15 {
@@ -166,8 +164,6 @@ public class Day15 {
         }
 
         public Point getPoint() { return point; }
-
-        public void setPoint(Point point) { this.point = point; }
 
         public int getHitPoints() { return hitPoints; }
 
