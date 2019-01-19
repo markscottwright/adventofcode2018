@@ -114,6 +114,10 @@ public class Day15Test {
         arena.printGrid(arena.getCombatants(), System.out);
     }
 
+    private Arena parseString(String lines, int elfattackPower) {
+        return Arena.parse(Arrays.asList(lines.split("\n")), elfattackPower);
+    }
+
     private Arena parseString(String lines) {
         return Arena.parse(Arrays.asList(lines.split("\n")));
     }
@@ -173,27 +177,27 @@ public class Day15Test {
         ArrayList<Combatant> fixedHitPoints = new ArrayList<>();
         Iterator<Combatant> it = arena.getCombatants().iterator();
         Combatant c = it.next();
-        fixedHitPoints
-                .add(new Combatant(c.type, c.getPoint().x, c.getPoint().y, 9));
+        fixedHitPoints.add(
+                new Combatant(c.type, c.getPoint().x, c.getPoint().y, 9, 3));
         c = it.next();
-        fixedHitPoints
-                .add(new Combatant(c.type, c.getPoint().x, c.getPoint().y, 4));
+        fixedHitPoints.add(
+                new Combatant(c.type, c.getPoint().x, c.getPoint().y, 4, 3));
         Combatant elf = it.next();
         c = it.next();
-        fixedHitPoints
-                .add(new Combatant(c.type, c.getPoint().x, c.getPoint().y, 2));
+        fixedHitPoints.add(
+                new Combatant(c.type, c.getPoint().x, c.getPoint().y, 2, 3));
         c = it.next();
-        fixedHitPoints
-                .add(new Combatant(c.type, c.getPoint().x, c.getPoint().y, 2));
+        fixedHitPoints.add(
+                new Combatant(c.type, c.getPoint().x, c.getPoint().y, 2, 3));
         c = it.next();
-        fixedHitPoints
-                .add(new Combatant(c.type, c.getPoint().x, c.getPoint().y, 1));
+        fixedHitPoints.add(
+                new Combatant(c.type, c.getPoint().x, c.getPoint().y, 1, 3));
 
         assertEquals(Type.ELF, elf.type);
 
         Combatant attackedGnome = elf
                 .selectCombatantToAttack(elf.adjacentEnemies(fixedHitPoints));
-        attackedGnome.takeDamage();
+        attackedGnome.takeDamage(elf.getAttackPower());
         assertTrue(attackedGnome.isDead());
         assertEquals(3, attackedGnome.getPoint().x);
         assertEquals(2, attackedGnome.getPoint().y);
@@ -220,6 +224,26 @@ public class Day15Test {
     }
 
     @Test
+    public void testSampleCombatPart2() {
+        //@formatter:off
+        var arena = parseString(
+                "#######\n" + 
+                "#.G...#\n" + 
+                "#...EG#\n" + 
+                "#.#.#G#\n" + 
+                "#..G#E#\n" + 
+                "#.....#\n" + 
+                "#######\n", 15); 
+        //@formatter:on
+
+        while (!arena.combatComplete())
+            arena.takeTurn();
+
+        assertEquals(29, arena.getRoundsTaken());
+        assertEquals(172, arena.totalHitPoints());
+    }
+
+    @Test
     public void testSampleCombat2() {
         //@formatter:off
         var arena = parseString(
@@ -232,14 +256,14 @@ public class Day15Test {
                 "#######\n" 
                 );
         //@formatter:on
-        
+
         while (!arena.combatComplete())
             arena.takeTurn();
-        
+
         assertEquals(37, arena.getRoundsTaken());
         assertEquals(982, arena.totalHitPoints());
     }
-    
+
     @Test
     public void testSampleCombat3() {
         //@formatter:off
@@ -253,14 +277,14 @@ public class Day15Test {
                 "#######\n"  
                 );
         //@formatter:on
-        
+
         while (!arena.combatComplete())
             arena.takeTurn();
-        
+
         assertEquals(46, arena.getRoundsTaken());
         assertEquals(859, arena.totalHitPoints());
     }
-    
+
     @Test
     public void testSampleCombat4() {
         //@formatter:off
@@ -274,14 +298,61 @@ public class Day15Test {
                 "#######\n"  
                 );
         //@formatter:on
-        
+
         while (!arena.combatComplete())
             arena.takeTurn();
-        
+
         assertEquals(54, arena.getRoundsTaken());
         assertEquals(536, arena.totalHitPoints());
     }
 
+    @Test
+    public void testSampleCombatPart2Example4() {
+        //@formatter:off
+        var arena = parseString(
+                "#######\n" + 
+                "#.E...#\n" + 
+                "#.#..G#\n" + 
+                "#.###.#\n" + 
+                "#E#G#G#\n" + 
+                "#...#G#\n" + 
+                "#######\n", 12); 
+        //@formatter:on
+
+        while (!arena.combatComplete()) {
+            arena.takeTurn();
+            printGridState(arena);
+        }
+
+        assertEquals(39, arena.getRoundsTaken());
+        assertEquals(166, arena.totalHitPoints());
+    }
+    @Test
+    public void testSampleCombatPart2Example5() {
+        //@formatter:off
+        var arenaTemplate = parseString(
+                "#########\n" + 
+                "#G......#\n" + 
+                "#.E.#...#\n" + 
+                "#..##..G#\n" + 
+                "#...##..#\n" + 
+                "#...#...#\n" + 
+                "#.G...G.#\n" + 
+                "#.....G.#\n" + 
+                "#########\n"); 
+        //@formatter:on
+        
+        var arena = arenaTemplate.copy(34);
+        while (!arena.combatComplete()) {
+            arena.takeTurn();
+            System.out.println(arena.numElves());
+        }
+
+        assertEquals(30, arena.getRoundsTaken());
+        assertEquals(38, arena.totalHitPoints());
+        
+        System.out.println(Arena.outcomeWithNoElfLosses(arenaTemplate.copy(3)));
+    }
     private void printGridState(Arena arena) {
         System.out.println("round:" + arena.getRoundsTaken());
         arena.printGrid(arena.getCombatants(), System.out);

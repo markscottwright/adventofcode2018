@@ -14,7 +14,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import adventofcode2018.Day15.Combatant;
+import adventofcode2018.Day15.Arena;
 import adventofcode2018.Day15.Combatant.Type;
 
 public class Day15 {
@@ -105,16 +105,17 @@ public class Day15 {
             }
         }
 
-        private static final int HIT_POWER = 3;
-
         final Type type;
+        final int attackPower;
         private Point point;
         private int hitPoints;
 
-        public Combatant(Type type, int x, int y, int hitPoints) {
+        public Combatant(Type type, int x, int y, int hitPoints,
+                int attackPower) {
             this.type = type;
             this.point = new Point(x, y);
             this.hitPoints = hitPoints;
+            this.attackPower = attackPower;
         }
 
         @Override
@@ -154,12 +155,8 @@ public class Day15 {
             return orderedAdjacentEnemies.get(0);
         }
 
-        private void hit(int hitPower) {
-            hitPoints = Math.max(0, hitPoints - hitPower);
-        }
-
-        public void takeDamage() {
-            hit(HIT_POWER);
+        public void takeDamage(int attackPower) {
+            hitPoints = Math.max(0, hitPoints - attackPower);
         }
 
         public boolean isDead() { return hitPoints <= 0; }
@@ -173,6 +170,8 @@ public class Day15 {
         public void setPoint(Point point) { this.point = point; }
 
         public int getHitPoints() { return hitPoints; }
+
+        public int getAttackPower() { return attackPower; }
     }
 
     public static class Arena {
@@ -183,6 +182,32 @@ public class Day15 {
         public Arena(char[][] map, ArrayList<Combatant> combatants) {
             this.combatants = combatants;
             this.map = map;
+        }
+
+        public Arena copy(int elfAttackPower) {
+            ArrayList<Combatant> combatantsCopy = combatants.stream()
+                    .map(c -> new Combatant(c.type, c.point.x, c.point.y,
+                            c.hitPoints,
+                            c.type.equals(Type.ELF) ? elfAttackPower : c.attackPower))
+                    .collect(Collectors.toCollection(ArrayList::new));
+            return new Arena(map, combatantsCopy);
+        }
+
+        static int outcomeWithNoElfLosses(Arena arena) {
+            int originalElfCount = arena.numElves();
+            int hitPower = 4;
+            while (true) {
+                var currentArena = arena.copy(hitPower);
+                while (!currentArena.combatComplete()
+                        && currentArena.numElves() == originalElfCount) {
+                    currentArena.takeTurn();
+                }
+                if (currentArena.numElves() == originalElfCount)
+                    return currentArena.roundsTaken
+                            * currentArena.totalHitPoints();
+
+                hitPower++;
+            }
         }
 
         void printGrid(ArrayList<Combatant> combatants, PrintStream out) {
@@ -203,25 +228,29 @@ public class Day15 {
             }
         }
 
-        public static Arena parse(List<String> readAllLines) {
-            int maxX = readAllLines.stream().map(String::length)
+        public static Arena parse(List<String> mapLines) {
+            return parse(mapLines, 3);
+        }
+
+        public static Arena parse(List<String> mapLines, int elfattackPower) {
+            int maxX = mapLines.stream().map(String::length)
                     .collect(Collectors.maxBy(Integer::compare)).get();
-            int maxY = readAllLines.size();
+            int maxY = mapLines.size();
 
             ArrayList<Combatant> combatants = new ArrayList<>();
             char[][] map = new char[maxX][maxY];
             for (int x = 0; x < maxX; ++x) {
                 for (int y = 0; y < maxY; ++y) {
-                    char mapSquare = readAllLines.get(y).length() >= maxX
-                            ? readAllLines.get(y).charAt(x)
+                    char mapSquare = mapLines.get(y).length() >= maxX
+                            ? mapLines.get(y).charAt(x)
                             : '#';
                     if (mapSquare == 'G') {
                         combatants.add(new Combatant(Combatant.Type.GOBLIN, x,
-                                y, 200));
+                                y, 200, 3));
                         map[x][y] = '.';
                     } else if (mapSquare == 'E') {
-                        combatants.add(
-                                new Combatant(Combatant.Type.ELF, x, y, 200));
+                        combatants.add(new Combatant(Combatant.Type.ELF, x, y,
+                                200, elfattackPower));
                         map[x][y] = '.';
                     } else
                         map[x][y] = mapSquare;
@@ -261,6 +290,7 @@ public class Day15 {
                     Point p = firstStepTowardsNearestOf(map, combatants,
                             c.getPoint(), possibleDestinations);
                     if (p != null) {
+                        // System.out.println(c + " moves to " + p);
                         c.moveTo(p);
                     }
                 }
@@ -270,7 +300,8 @@ public class Day15 {
                 if (adjacentEnemies.size() > 0) {
                     Combatant combatantToAttack = c
                             .selectCombatantToAttack(adjacentEnemies);
-                    combatantToAttack.takeDamage();
+                    // System.out.println(c + " attacks " + combatantToAttack);
+                    combatantToAttack.takeDamage(c.getAttackPower());
                     if (combatantToAttack.isDead())
                         combatants.remove(combatantToAttack);
                 }
@@ -389,10 +420,47 @@ public class Day15 {
         }
     }
 
+    static private void printGridState(Arena arena) {
+        System.out.println("round:" + arena.getRoundsTaken());
+        arena.printGrid(arena.getCombatants(), System.out);
+        arena.getCombatants().stream().forEach(c -> System.out
+                .println(c.type + "(" + c.getHitPoints() + ") "));
+    }
+
     public static void main(String[] args) throws IOException {
-        Arena arena = Arena
-                .parse(Files.readAllLines(Paths.get("data", "day15.txt")));
-        System.out.println(arena.numElves());
-        System.out.println(arena.numGoblins());
+        List<String> mapLines = Files
+                .readAllLines(Paths.get("data", "day15.txt"));
+        Arena arena = Arena.parse(mapLines);
+        final int maxElves = arena.numElves();
+
+        while (!arena.combatComplete())
+            arena.takeTurn();
+        System.out.println(arena.getRoundsTaken());
+        System.out.println(arena.totalHitPoints());
+        System.out.println(arena.totalHitPoints() * arena.getRoundsTaken());
+
+        for (int i = 4; i < 500; ++i) {
+            arena = Arena.parse(mapLines, i);
+            while (!arena.combatComplete()) {
+                System.out.println(i + ":" + arena.numElves());
+                arena.takeTurn();
+            }
+            System.out.println(arena.numElves());
+            System.out.println(maxElves);
+            if (arena.numElves() == maxElves) {
+                System.out.println("Part two:");
+                System.out.println(i);
+                System.out.println(arena.getRoundsTaken());
+                System.out.println(arena.totalHitPoints());
+                System.out.println(
+                        arena.totalHitPoints() * arena.getRoundsTaken());
+                System.out.println(
+                        arena.totalHitPoints() * (arena.getRoundsTaken() - 1));
+                break;
+            }
+        }
+        
+        arena = Arena.parse(mapLines);
+        System.out.println(Arena.outcomeWithNoElfLosses(arena));
     }
 }
