@@ -1,28 +1,19 @@
 package adventofcode2018;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
-import adventofcode2018.Day17.SeepResults;
-
 public class Day17 {
 
     public enum SeepResults {
-        FREE
-
-        , BLOCKED
+        FREE, BLOCKED
     }
 
     public static class Point {
@@ -133,7 +124,6 @@ public class Day17 {
         }
 
         public void print(PrintStream out) {
-            System.out.println(clay);
             for (int y = 0; y <= maxY; ++y) {
                 for (int x = minX; x <= maxX; ++x) {
                     if (clay.contains(new Point(x, y))) {
@@ -242,6 +232,11 @@ public class Day17 {
         Ground ground = Ground.parseScan(lines);
         ground.seep();
         System.out.println("Part one: " + ground.numWaterPointsInScanRange());
+        var output = Files.createTempFile("ground", ".txt");
+        try (PrintStream f = new PrintStream(output.toFile())) {
+            ground.print(f);
+            System.out.println("Scan written to " + output.toAbsolutePath());
+        }
         System.out.println("Part two: " + ground.numRestingWaterPoints());
     }
 }

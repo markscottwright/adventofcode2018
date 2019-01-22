@@ -413,6 +413,7 @@ public class Day15 {
         }
     }
 
+    @SuppressWarnings("unused")
     static private void printGridState(Arena arena) {
         System.out.println("round:" + arena.getRoundsTaken());
         arena.printGrid(arena.getCombatants(), System.out);
