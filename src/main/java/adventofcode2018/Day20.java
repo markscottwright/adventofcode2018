@@ -5,17 +5,101 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.stream.Collectors;
 
+import org.javatuples.Pair;
+
+import adventofcode2018.Day20.Point;
+
 public class Day20 {
+
+    public static class NorthPoleMap {
+        private char[][] map;
+        private int minX;
+        private int minY;
+        private int maxX;
+        private int maxY;
+
+        public NorthPoleMap(Point origin, Set<PointPair> doors) {
+            maxX = maxY = Integer.MIN_VALUE;
+            minX = minY = Integer.MAX_VALUE;
+            for (PointPair pair : doors) {
+                maxX = Math.max(maxX, Math.max(pair.x1, pair.x2));
+                maxY = Math.max(maxY, Math.max(pair.y1, pair.y2));
+                minX = Math.min(minX, Math.min(pair.x1, pair.x2));
+                minY = Math.min(minY, Math.min(pair.y1, pair.y2));
+            }
+
+            int mapWidth = maxX - minX + 2;
+            int mapHeight = maxY - minY + 2;
+            System.out.println("map bounds:" + mapWidth + "," + mapHeight);
+            map = new char[mapWidth * 2 - 1][mapHeight * 2 - 1];
+            for (int x = 0; x < map.length; x++)
+                for (int y = 0; y < map[0].length; y++)
+                    map[x][y] = '?';
+
+            for (PointPair p : doors) {
+                markPointPair(p);
+            }
+            Point shiftedOrigin = new Point(origin.x - minX, origin.y - minY);
+            map[shiftedOrigin.x * 2 + 1][shiftedOrigin.y * 2 + 1] = 'X';
+
+            // anything that didn't get marked is a wall
+            for (int x = 0; x < map.length; x++)
+                for (int y = 0; y < map[0].length; y++)
+                    if (map[x][y] == '?')
+                        map[x][y] = '#';
+        }
+
+        private void markPointPair(PointPair original) {
+
+            PointPair p = original.shift(minX, minY);
+
+            // so, if there is a point at 0,0, its room marker is at 1,1, and
+            // its corner walls are 0,0, 0,2, 2,0 and 2,2. Possible doors are
+            // 0,1, 1,0, 2,1 and 1,2.
+
+            // corners
+            map[p.x1 * 2][p.y1 * 2] = '#';
+            map[p.x1 * 2 + 2][p.y1 * 2] = '#';
+            map[p.x1 * 2][p.y1 * 2 + 2] = '#';
+            map[p.x1 * 2 + 2][p.y1 * 2 + 2] = '#';
+            map[p.x2 * 2][p.y2 * 2] = '#';
+            map[p.x2 * 2 + 2][p.y2 * 2] = '#';
+            map[p.x2 * 2][p.y2 * 2 + 2] = '#';
+            map[p.x2 * 2 + 2][p.y2 * 2 + 2] = '#';
+
+            // room marker
+            map[p.x1 * 2 + 1][p.y1 * 2 + 1] = '.';
+            map[p.x2 * 2 + 1][p.y2 * 2 + 1] = '.';
+
+            // pair above each other - horizontal divider
+            if (p.x1 == p.x2) {
+                map[p.x1 * 2 + 1][p.y1 * 2 + 2] = '-';
+            }
+            // pair next to each other - vertical divider
+            else {
+                map[p.x1 * 2 + 2][p.y1 * 2 + 1] = '|';
+            }
+        }
+
+        void print(PrintStream out) {
+            for (int y = 0; y < map[0].length; ++y) {
+                for (int x = 0; x < map.length; ++x) {
+                    out.print(map[x][y]);
+                }
+                out.println();
+            }
+        }
+    }
 
     public static class PointPair {
 
         final int x1, y1, x2, y2;
-        final char doorSymbol;
 
         public PointPair(Point p1, Point p2) {
             if (p1.x < p2.x || p1.y < p2.y) {
@@ -29,10 +113,18 @@ public class Day20 {
                 x2 = p1.x;
                 y2 = p1.y;
             }
-            if (p1.y == p2.y)
-                doorSymbol = '-';
-            else
-                doorSymbol = '|';
+        }
+
+        private PointPair(int x1, int y1, int x2, int y2, int xOffset,
+                int yOffset) {
+            this.x1 = x1 - xOffset;
+            this.x2 = x2 - xOffset;
+            this.y1 = y1 - yOffset;
+            this.y2 = y2 - yOffset;
+        }
+
+        public PointPair shift(int xOffset, int yOffset) {
+            return new PointPair(x1, y1, x2, y2, xOffset, yOffset);
         }
 
         @Override
@@ -72,20 +164,9 @@ public class Day20 {
                     + y2 + "]";
         }
 
-        public Point doorLocationRelativeTo(int minX, int minY) {
-            if (y1 == y2) {
-                int x = x1 - minX;
-                int y = y1 - minY;
-                return new Point(x * 2 + 1, y * 2);
-            } else {
-                int x = x1 - minX;
-                int y = y1 - minY;
-                return new Point(x * 2, y * 2 + 1);
-            }
-        }
-
     }
 
+    @SuppressWarnings("serial")
     public static class ParsingException extends Exception {
 
     }
@@ -95,7 +176,6 @@ public class Day20 {
         final int y;
 
         public Point(int x, int y) {
-            super();
             this.x = x;
             this.y = y;
         }
@@ -131,8 +211,40 @@ public class Day20 {
         public String toString() {
             return "Point [x=" + x + ", y=" + y + "]";
         }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + x;
+            result = prime * result + y;
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj)
+                return true;
+            if (obj == null)
+                return false;
+            if (getClass() != obj.getClass())
+                return false;
+            Point other = (Point) obj;
+            if (x != other.x)
+                return false;
+            if (y != other.y)
+                return false;
+            return true;
+        }
     }
 
+    /**
+     * Regular expressions are represented by a "chain", which is a linked list
+     * of either Segments or lists of Chains.
+     * 
+     * @author wrightm
+     *
+     */
     public static class Chain {
 
         static final Chain END = new Chain();
@@ -233,25 +345,36 @@ public class Day20 {
             }
         }
 
-        Point walkPath(Point loc, Set<PointPair> doors) {
+        Point walkPath(Point loc, Set<PointPair> doors,
+                HashMap<Pair<Point, Chain>, Point> alreadyWalked) {
+            Pair<Point, Chain> memoize = Pair.with(loc, this);
+            if (alreadyWalked.containsKey(memoize))
+                return alreadyWalked.get(memoize);
+
             if (segment != null) {
                 for (Character c : segment.toCharArray()) {
                     Point nextPoint = loc.walk(c);
+                    int doorsBefore = doors.size();
                     doors.add(new PointPair(loc, nextPoint));
                     loc = nextPoint;
                 }
-                if (next != null)
-                    return next.walkPath(loc, doors);
-                else
+                if (next != null) {
+                    var endLoc = next.walkPath(loc, doors, alreadyWalked);
+                    alreadyWalked.put(memoize, endLoc);
+                    return endLoc;
+                } else {
+                    alreadyWalked.put(memoize, loc);
                     return loc;
+                }
             } else {
                 for (Chain choice : choices) {
-                    Point locAtEndOfChoice = choice.walkPath(loc, doors);
-                    next.walkPath(locAtEndOfChoice, doors);
+                    Point locAtEndOfChoice = choice.walkPath(loc, doors,
+                            alreadyWalked);
+                    next.walkPath(locAtEndOfChoice, doors, alreadyWalked);
                 }
+                alreadyWalked.put(memoize, loc);
                 return loc;
             }
-
         }
 
         @Override
@@ -268,56 +391,72 @@ public class Day20 {
                 return "";
         }
 
+        public HashSet<PointPair> walkPath(Point point) {
+            HashSet<PointPair> doors = new HashSet<>();
+            HashMap<Pair<Point, Chain>, Point> alreadyWalked = new HashMap<Pair<Point, Chain>, Point>();
+            walkPath(point, doors, alreadyWalked);
+            return doors;
+        }
+
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args)
+            throws IOException, ParsingException {
         String path = new String(
                 Files.readAllBytes(Paths.get("data", "day20.txt")));
-        System.out.println(path);
+        Chain chain = Chain.parse(path);
+        Point origin = new Point(0, 0);
+        HashSet<PointPair> doors = chain.walkPath(origin);
+        // new NorthPoleMap(origin, doors).print(System.out);
+
+        HashMap<Point, HashSet<Point>> roomConnections = doorsToRoomConnections(
+                doors);
+        HashMap<Point, Integer> distancesFromOrigin = distancesFromOrigin(
+                origin, roomConnections);
+        Integer furthestDistanceFromOrigin = distancesFromOrigin.values()
+                .stream().max(Integer::compare).get();
+        System.out.println("part one:" + furthestDistanceFromOrigin);
+        long roomsAtLeast1000DoorsAway = distancesFromOrigin.entrySet().stream()
+                .filter(e -> e.getValue() >= 1000).count();
+        System.out.println("part two:" + roomsAtLeast1000DoorsAway);
     }
 
-    public static void printMap(Point point, HashSet<PointPair> doors,
-            PrintStream out) {
-        int maxX, maxY, minX, minY;
-        maxX = maxY = Integer.MIN_VALUE;
-        minX = minY = Integer.MAX_VALUE;
-        for (PointPair pair : doors) {
-            maxX = Math.max(maxX, Math.max(pair.x1, pair.x2));
-            maxY = Math.max(maxY, Math.max(pair.y1, pair.y2));
-            minX = Math.min(minX, Math.min(pair.x1, pair.x2));
-            minY = Math.min(minY, Math.min(pair.y1, pair.y2));
+    private static HashMap<Point, HashSet<Point>> doorsToRoomConnections(
+            HashSet<PointPair> doors) {
+        HashMap<Point, HashSet<Point>> roomConnections = new HashMap<>();
+        for (PointPair p : doors) {
+            Point p1 = new Point(p.x1, p.y1);
+            Point p2 = new Point(p.x2, p.y2);
+            HashSet<Point> neighbors = roomConnections.getOrDefault(p1,
+                    new HashSet<>());
+            neighbors.add(p2);
+            roomConnections.put(p1, neighbors);
+            neighbors = roomConnections.getOrDefault(p2, new HashSet<>());
+            neighbors.add(p1);
+            roomConnections.put(p2, neighbors);
         }
+        return roomConnections;
+    }
 
-        int mapWidth = maxX - minX + 1;
-        int mapHeight = maxY - minY + 1;
-        char[][] map = new char[mapWidth * 2][mapHeight * 2];
-        for (int x = 0; x < mapWidth * 2; x++) {
-            for (int y = 0; y < mapHeight * 2; y++) {
-                if (x % 2 == 0 && y % 2 == 0) {
-                    map[x][y] = '.';
-                } else if (x % 2 == 1 && y % 2 == 1) {
-                    map[x][y] = '#';
-                } else {
-                    map[x][y] = '?';
-                }
-            }
+    private static HashMap<Point, Integer> distancesFromOrigin(Point origin,
+            HashMap<Point, HashSet<Point>> roomConnections) {
+        HashMap<Point, Integer> distanceFromOrigin = new HashMap<>();
+        int currentDistance = 0;
+        distanceFromOrigin.put(origin, currentDistance);
+        for (Point p : roomConnections.get(origin)) {
+            buildGraph(p, roomConnections, distanceFromOrigin, 1);
         }
+        return distanceFromOrigin;
+    }
 
-        out.println("min = " + minX + "," + minY);
-        out.println("max = " + maxX + "," + maxY);
-        out.println("extent = " + mapWidth * 2 + "," + mapHeight * 2);
-        for (PointPair pair : doors) {
-            System.out.println(pair);
-            Point doorLocation = pair.doorLocationRelativeTo(minX, minY);
-            System.out.println(doorLocation);
-            map[doorLocation.x][doorLocation.y] = pair.doorSymbol;
-        }
+    private static void buildGraph(Point p,
+            HashMap<Point, HashSet<Point>> roomConnections,
+            HashMap<Point, Integer> distanceFromOrigin, int distance) {
 
-        for (int y = 0; y < map[0].length; ++y) {
-            for (int x = 0; x < map.length; ++x) {
-                out.print(map[x][y]);
-            }
-            out.println();
-        }
+        if (distanceFromOrigin.containsKey(p))
+            return;
+        distanceFromOrigin.put(p, distance);
+        for (Point p2 : roomConnections.get(p))
+            buildGraph(p2, roomConnections, distanceFromOrigin, distance + 1);
     }
 }

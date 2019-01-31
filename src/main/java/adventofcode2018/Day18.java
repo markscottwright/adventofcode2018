@@ -14,6 +14,8 @@ public class Day18 {
     public static Character[][] parse(List<String> lines) {
         ArrayList<Character[]> lumberArea = new ArrayList<>();
         for (String line : lines) {
+            // this nightmare is one way to convert a string to an array of
+            // Character
             lumberArea.add(line.trim().chars().mapToObj(c -> (char) c)
                     .toArray(Character[]::new));
         }
@@ -94,6 +96,7 @@ public class Day18 {
 
     private static Character[] getAdjacent(Character[][] lumberArea, int x,
             int y) {
+        // using <= below, so max's are one less
         int maxY = lumberArea.length - 1;
         int maxX = lumberArea[0].length - 1;
 

@@ -12,30 +12,44 @@ import adventofcode2018.Day16.OpCode;
 
 public class Day19 {
 
+    /**
+     * The trick here is that lines 1-11 are adding up the sum of all even
+     * divisors of r[1] and putting it in r[0]. But using a O(n^2) algorithm. So
+     * if we replace the opcode starting at position 1 with Factorizer - which
+     * puts the sum of factors of r[1] in r[0] and skips ahead to instruction 12
+     * - this runs instantaneously.
+     * 
+     * @author wrightm
+     *
+     */
     public static class WristDeviceProgram {
 
         final private int instructionPointerRegister;
-        final private Map<String, OpCode> opCodes;
         final private List<Instruction> instructions;
         private boolean isTracing = false;
 
         public WristDeviceProgram(Map<String, OpCode> opCodes,
                 List<Instruction> instructions,
                 int instructionPointerRegister) {
-            this.opCodes = opCodes;
             this.instructions = instructions;
             this.instructionPointerRegister = instructionPointerRegister;
+            for (Instruction i : instructions)
+                i.compile(opCodes);
+        }
+
+        void enableSpeedup() {
+            instructions.set(1, new Factorizer());
         }
 
         public int[] run(int register0Value) {
-            int instructionPointer = 0;
             int[] registers = new int[] { register0Value, 0, 0, 0, 0, 0 };
+            return runWithRegisters(registers);
+        }
 
+        public int[] runWithRegisters(int[] registers) {
+
+            int instructionPointer = 0;
             while (instructionPointer < instructions.size()) {
-                if (registers[5] == 13944 && instructionPointer == 11) {
-                    registers[5] = registers[1];
-                    isTracing = true;
-                }
                 trace(String.format("ip = %d:", instructionPointer));
                 registers[instructionPointerRegister] = instructionPointer;
                 Instruction currentInstruction = instructions
@@ -43,9 +57,7 @@ public class Day19 {
                 trace(" " + currentInstruction);
                 int[] nextRegisters = Arrays.copyOf(registers, 6);
                 trace(" " + Arrays.toString(registers));
-                opCodes.get(currentInstruction.opcodeName).apply(nextRegisters,
-                        currentInstruction.inputA, currentInstruction.inputB,
-                        currentInstruction.outputC);
+                instructions.get(instructionPointer).apply(nextRegisters);
                 registers = nextRegisters;
                 trace(" -> " + Arrays.toString(registers));
                 traceNewLine();
@@ -71,13 +83,18 @@ public class Day19 {
         public int[] run() {
             return run(0);
         }
+
+        public void setTrace() {
+            isTracing = true;
+        }
     }
 
     public static class Instruction {
-        final String opcodeName;
-        final int inputA;
-        final int inputB;
-        final int outputC;
+        private final String opcodeName;
+        private final int inputA;
+        private final int inputB;
+        private final int outputC;
+        private OpCode opcode;
 
         public Instruction(String opcodeName, int inputA, int inputB,
                 int outputC) {
@@ -85,6 +102,10 @@ public class Day19 {
             this.inputA = inputA;
             this.inputB = inputB;
             this.outputC = outputC;
+        }
+
+        void compile(Map<String, OpCode> mapping) {
+            this.opcode = mapping.get(this.opcodeName);
         }
 
         public static Instruction parse(String line) {
@@ -99,6 +120,34 @@ public class Day19 {
                     + inputA + ", inputB=" + inputB + ", outputC=" + outputC
                     + "]";
         }
+
+        public void apply(int[] r) {
+            this.opcode.apply(r, inputA, inputB, outputC);
+        }
+    }
+
+    static int sumOfFactors(int n) {
+        int sum = 0;
+        for (int i = 1; i <= n; ++i) {
+            if (n % i == 0) {
+                sum += i;
+            }
+        }
+        return sum;
+    }
+
+    static class Factorizer extends Day19.Instruction {
+        public Factorizer() {
+            super("fact", 0, 0, 0);
+        }
+
+        @Override
+        public void apply(int[] r) {
+            r[2] = r[2] + 10;
+            r[5] = r[1] + 1;
+            r[3] = r[1] + 1;
+            r[0] = sumOfFactors(r[1]);
+        }
     }
 
     public static void main(String[] args) throws IOException {
@@ -112,10 +161,10 @@ public class Day19 {
 
         WristDeviceProgram program = new WristDeviceProgram(opCodes,
                 instructions, instructionPointer);
+        program.enableSpeedup();
         int[] results = program.run();
         System.out.println("Part one:" + Arrays.toString(results));
         System.out.println("Part one:" + results[0]);
-
         results = program.run(1);
         System.out.println("Part two:" + Arrays.toString(results));
         System.out.println("Part two:" + results[0]);
