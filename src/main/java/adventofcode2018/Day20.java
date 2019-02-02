@@ -13,8 +13,6 @@ import java.util.stream.Collectors;
 
 import org.javatuples.Pair;
 
-import adventofcode2018.Day20.Point;
-
 public class Day20 {
 
     public static class NorthPoleMap {
@@ -62,6 +60,9 @@ public class Day20 {
             // so, if there is a point at 0,0, its room marker is at 1,1, and
             // its corner walls are 0,0, 0,2, 2,0 and 2,2. Possible doors are
             // 0,1, 1,0, 2,1 and 1,2.
+            
+            // The two hardest problems in computer science are cache
+            // invalidation, naming things and off-by-one errors
 
             // corners
             map[p.x1 * 2][p.y1 * 2] = '#';
@@ -354,7 +355,6 @@ public class Day20 {
             if (segment != null) {
                 for (Character c : segment.toCharArray()) {
                     Point nextPoint = loc.walk(c);
-                    int doorsBefore = doors.size();
                     doors.add(new PointPair(loc, nextPoint));
                     loc = nextPoint;
                 }
@@ -441,8 +441,7 @@ public class Day20 {
     private static HashMap<Point, Integer> distancesFromOrigin(Point origin,
             HashMap<Point, HashSet<Point>> roomConnections) {
         HashMap<Point, Integer> distanceFromOrigin = new HashMap<>();
-        int currentDistance = 0;
-        distanceFromOrigin.put(origin, currentDistance);
+        distanceFromOrigin.put(origin, 0);
         for (Point p : roomConnections.get(origin)) {
             buildGraph(p, roomConnections, distanceFromOrigin, 1);
         }
