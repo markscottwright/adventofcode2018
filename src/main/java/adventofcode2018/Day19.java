@@ -90,11 +90,11 @@ public class Day19 {
     }
 
     public static class Instruction {
-        private final String opcodeName;
-        private final int inputA;
-        private final int inputB;
-        private final int outputC;
-        private OpCode opcode;
+        protected final String opcodeName;
+        protected final int inputA;
+        protected final int inputB;
+        protected final int outputC;
+        protected OpCode opcode;
 
         public Instruction(String opcodeName, int inputA, int inputB,
                 int outputC) {
