@@ -2,7 +2,9 @@ package adventofcode2018;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.PriorityQueue;
+import java.util.Set;
 
 import org.javatuples.Pair;
 
@@ -23,7 +25,7 @@ public class Day22 {
 
     enum Equipment {
         TORCH, CLIMBING_GEAR, NOTHING;
-        
+
         Equipment change(Step move) {
             if (move.equals(Step.EQUIP_CLIMBING_GEAR))
                 return CLIMBING_GEAR;
@@ -37,8 +39,7 @@ public class Day22 {
     }
 
     enum Step {
-        MOVE_UP, MOVE_RIGHT, MOVE_DOWN, MOVE_LEFT, EQUIP_TORCH,
-        EQUIP_CLIMBING_GEAR, EQUIP_NOTHING;
+        MOVE_UP, MOVE_RIGHT, MOVE_DOWN, MOVE_LEFT, EQUIP_TORCH, EQUIP_CLIMBING_GEAR, EQUIP_NOTHING;
 
         static int weight(ArrayList<Step> steps) {
             return steps.stream().mapToInt(s -> Step.weight(s)).sum();
@@ -56,23 +57,23 @@ public class Day22 {
             }
         }
     }
-    
-    static class Point extends adventofcode2018.Point {
 
-        public Point(int x, int y) {
+    static class CavePosition extends adventofcode2018.Point {
+
+        public CavePosition(int x, int y) {
             super(x, y);
         }
-        
-        private Point doMove(Step move) {
+
+        private CavePosition doMove(Step move) {
             switch (move) {
             case MOVE_DOWN:
-                return new Point(x, y + 1);
+                return new CavePosition(x, y + 1);
             case MOVE_LEFT:
-                return new Point(x - 1, y);
+                return new CavePosition(x - 1, y);
             case MOVE_RIGHT:
-                new Point(x + 1, y);
+                return new CavePosition(x + 1, y);
             case MOVE_UP:
-                return new Point(x, y - 1);
+                return new CavePosition(x, y - 1);
             default:
                 return this;
             }
@@ -80,30 +81,30 @@ public class Day22 {
     }
 
     static class Cave {
-        final private HashMap<Point, Integer> geologicIndices;
-        final private int maxX;
-        final private int maxY;
+        final private HashMap<CavePosition, Integer> geologicIndices;
+        final private int goalX;
+        final private int goalY;
         final private int depth;
 
-        public Cave(int maxX, int maxY, int depth) {
-            this.maxX = maxX;
-            this.maxY = maxY;
+        public Cave(int goalX, int goalY, int depth) {
+            this.goalX = goalX;
+            this.goalY = goalY;
             this.depth = depth;
 
             geologicIndices = new HashMap<>();
-            geologicIndices.put(new Point(0, 0), 0);
-            geologicIndices.put(new Point(maxX, maxY), 0);
-            for (int x = 0; x <= maxX; x++)
-                geologicIndices.put(new Point(x, 0), x * 16807);
-            for (int y = 0; y <= maxY; ++y)
-                geologicIndices.put(new Point(0, y), y * 48271);
+            geologicIndices.put(new CavePosition(0, 0), 0);
+            geologicIndices.put(new CavePosition(goalX, goalY), 0);
+            for (int x = 0; x <= goalX; x++)
+                geologicIndices.put(new CavePosition(x, 0), x * 16807);
+            for (int y = 0; y <= goalY; ++y)
+                geologicIndices.put(new CavePosition(0, y), y * 48271);
 
-            for (int x = 1; x <= maxX; x++) {
-                for (int y = 1; y <= maxY; y++) {
-                    if (x == maxX && y == maxY)
+            for (int x = 1; x <= goalX; x++) {
+                for (int y = 1; y <= goalY; y++) {
+                    if (x == goalX && y == goalY)
                         break;
 
-                    geologicIndices.put(new Point(x, y),
+                    geologicIndices.put(new CavePosition(x, y),
                             erosionLevel(x - 1, y) * erosionLevel(x, y - 1));
                 }
             }
@@ -114,10 +115,16 @@ public class Day22 {
         }
 
         private Integer getGeologicIndex(int x, int y) {
-            Point point = new Point(x, y);
-            if (!geologicIndices.containsKey(point))
-                geologicIndices.put(point,
-                        erosionLevel(x - 1, y) * erosionLevel(x, y - 1));
+            CavePosition point = new CavePosition(x, y);
+            if (!geologicIndices.containsKey(point)) {
+                if (x == 0)
+                    geologicIndices.put(point, y * 48271);
+                else if (y == 0)
+                    geologicIndices.put(point, x * 16807);
+                else
+                    geologicIndices.put(point,
+                            erosionLevel(x - 1, y) * erosionLevel(x, y - 1));
+            }
             return geologicIndices.get(point);
         }
 
@@ -136,76 +143,146 @@ public class Day22 {
                     .mapToInt(RegionType::getRiskLevel).sum();
         }
 
+        /**
+         * Find minimum series of steps from 0,0 with a TORCH to goal position
+         * with a TORCH
+         * 
+         * @return
+         */
         Path findPath() {
+            final CavePosition goalPosition = new CavePosition(goalX, goalY);
+            final Equipment goalEquipment = Equipment.TORCH;
 
-            HashMap<Pair<Point, Equipment>, Path> shortedPathAtPoint = new HashMap<>();
+            HashMap<Pair<CavePosition, Equipment>, Path> shortedPathAtPoint = new HashMap<>();
+            PriorityQueue<Path> toConsider = new PriorityQueue<>(
+                    (p1, p2) -> Integer.compare(p1.weight, p2.weight));
+            Set<Path> solutions = new HashSet<>();
+
+            // add initial state
             Path emptyPath = new Path();
-            shortedPathAtPoint.put(Pair.with(emptyPath.getFinalPoint(), emptyPath.getEquipment()),
+            shortedPathAtPoint.put(
+                    Pair.with(emptyPath.position, emptyPath.equipment),
                     emptyPath);
+            toConsider.add(emptyPath);
 
-            PriorityQueue<Day22.Path> toConsider = new PriorityQueue<>(comparator) 
-            // found a path
-            if (pos.equals(new Point(maxX, maxY))
-                    && equipped.equals(Equipment.TORCH))
-                return stepsSoFar;
+            while (!toConsider.isEmpty()) {
+                Path p = toConsider.remove();
+                if (!solutions.isEmpty()) {
 
-            // pick next move
-            for (Step move : Step.values()) {
-                Point nextPos = doMove(move, pos);
-                Equipment nextEquipment = changeEquipment(move, equipped);
+                    // we have a solution and its better than any path remaining
+                    // to consider
+                    if (solutions.stream().anyMatch(s -> s.weight < p.weight)) {
+                        break;
+                    }
+                }
 
-                if (nextPos.x < 0 || nextPos.y < 0)
-                    continue;
-                if (nextPos.equals(pos) && nextEquipment.equals(equipped))
-                    continue;
-                if (!equipmentAllowed(nextEquipment, pos)
-                        || !equipmentAllowed(nextEquipment, nextPos))
-                    continue;
+                // got a solution
+                if (p.equipment == goalEquipment
+                        && p.position.equals(goalPosition)) {
+                    solutions.add(p);
+                } else {
+                    // pick next move
+                    for (Step move : Step.values()) {
+                        Path nextPath = p.addStep(move);
+                        CavePosition nextPos = nextPath.position;
+                        Equipment nextEquipment = nextPath.equipment;
+
+                        if (nextPos.x < 0 || nextPos.y < 0)
+                            continue;
+
+                        // no change
+                        if (nextPos.equals(p.position)
+                                && nextEquipment.equals(p.equipment))
+                            continue;
+
+                        // change not allowed
+                        if (!equipmentAllowed(nextEquipment, p.position)
+                                || !equipmentAllowed(nextEquipment, nextPos))
+                            continue;
+
+                        // this is a valid move - if makes a better path, add it
+                        // to consideration list
+                        var currentPathAtPoint = shortedPathAtPoint
+                                .get(Pair.with(nextPos, nextEquipment));
+                        if (currentPathAtPoint == null) {
+                            shortedPathAtPoint.put(
+                                    Pair.with(nextPos, nextEquipment),
+                                    nextPath);
+                            toConsider.add(nextPath);
+                        } else if (currentPathAtPoint.weight > nextPath.weight) {
+                            shortedPathAtPoint.replace(
+                                    Pair.with(nextPos, nextEquipment),
+                                    nextPath);
+                            toConsider.add(nextPath);
+                        }
+                    }
+                }
             }
+
+            // return the first solution in the set - they should all have the
+            // same weight
+            return solutions.iterator().next();
         }
 
-        
-
-        
-
-        private boolean equipmentAllowed(Equipment value1, Point position) {
+        /**
+         * Is equipment allowed at position?
+         */
+        private boolean equipmentAllowed(Equipment equipment,
+                CavePosition position) {
             if (getType(position.x, position.y) == RegionType.narrow) {
-                return value1.equals(Equipment.TORCH)
-                        || value1.equals(Equipment.NOTHING);
+                return equipment.equals(Equipment.TORCH)
+                        || equipment.equals(Equipment.NOTHING);
             } else if (getType(position.x, position.y) == RegionType.rocky) {
-                return value1.equals(Equipment.TORCH)
-                        || value1.equals(Equipment.CLIMBING_GEAR);
+                return equipment.equals(Equipment.TORCH)
+                        || equipment.equals(Equipment.CLIMBING_GEAR);
             } else {
-                return value1.equals(Equipment.CLIMBING_GEAR)
-                        || value1.equals(Equipment.NOTHING);
+                return equipment.equals(Equipment.CLIMBING_GEAR)
+                        || equipment.equals(Equipment.NOTHING);
             }
         }
     }
 
+    /**
+     * I represent a series of steps from 0,0 with a TORCH to a
+     * (position,equipment).
+     * 
+     * @author mwright
+     *
+     */
     static class Path {
+        @Override
+        public String toString() {
+            return "Path [weight=" + weight + ", position=" + position
+                    + ", equipment=" + equipment + ", steps=" + steps + "]";
+        }
+
         final ArrayList<Step> steps;
         final int weight;
-    
+        final Equipment equipment;
+        final CavePosition position;
+
         Path() {
             steps = new ArrayList<>();
             weight = 0;
-        }
-    
-        public Object getEquipment() {
-            // TODO Auto-generated method stub
-            return null;
-        }
 
-        public Object getFinalPoint() {
-            // TODO Auto-generated method stub
-            return null;
+            this.equipment = Equipment.TORCH;
+            this.position = new CavePosition(0, 0);
+
         }
 
         private Path(ArrayList<Step> steps, int weight) {
             this.steps = steps;
             this.weight = weight;
+            Equipment equipment = Equipment.TORCH;
+            CavePosition pos = new CavePosition(0, 0);
+            for (Step step : steps) {
+                equipment = equipment.change(step);
+                pos = pos.doMove(step);
+            }
+            this.equipment = equipment;
+            this.position = pos;
         }
-    
+
         Path addStep(Step step) {
             var newSteps = new ArrayList<>(steps);
             newSteps.add(step);
@@ -218,24 +295,8 @@ public class Day22 {
         var cave = new Cave(14, 709, 6084);
         System.out.println("Part one: " + cave.totalRiskLevel());
 
-        // part two:
-        // Breadth-first search? Order next choice by weight of move into space,
-        // nearness of
-        // map<tuple<Point,Equipped>, Route> metadata;
-        // route = findRoute(cave, point, equipped, metadata)
-        // if point == endPoint && equipment == torch)
-        // return metadata.get(point, equipment)
-        // for step in (moveUp, moveRight, moveDown, moveLeft, equipTorch,
-        // equipClimbingGear, equipNothing)
-        // potentialPosition = move.getPosition(p)
-        // potentialEquipment = move.getEquipment()
-        // if isAllowed(p, potentialEquipment) && isAllowed(potentialPosition)
-        // && isAllowed(potentialPosition, potentialEquipment)
-        // moves.add(step)
-        // sortMoves
-        // for move in moves:
-        // if betterMove(): metadata(potentialPosition, potentialEquipment) =
-        // metadata(p, equipped) + move
-        // findPath(cave, move.getPoint(p), move.getEquipment(), metadata)
+        Path path = cave.findPath();
+        System.out.println("Part two: " + path);
+        System.out.println("Part two: " + path.weight);
     }
 }

@@ -4,6 +4,10 @@ import static org.junit.Assert.*;
 
 import org.junit.Test;
 
+import adventofcode2018.Day22.Equipment;
+import adventofcode2018.Day22.Path;
+import adventofcode2018.Day22.Step;
+
 public class Day22Test {
 
     @Test
@@ -27,4 +31,12 @@ public class Day22Test {
         assertEquals(114, cave.totalRiskLevel());
     }
 
+    @Test
+    public void testPaths() {
+        
+        Path p = new Path();
+        Path p2 = p.addStep(Step.MOVE_RIGHT);
+        assertEquals(new Day22.CavePosition(1,0), p2.position);
+        assertEquals(Equipment.TORCH, p2.equipment);
+    }
 }
