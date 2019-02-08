@@ -54,25 +54,19 @@ public class Day23Test {
         assertEquals(7, numInRange);
     }
 
-    public void testEnumeratingPointsInRange() {
-        Nanobot nanobot = new Nanobot(0, 0, 0, 500);
-        for (Position p : nanobot.pointsInRange()) {
-            assertTrue(nanobot.inRange(p));
-        }
-
-    }
-
     @Test
     public void testVolumeIntersection() {
         Volume vol1 = new Day23.Volume(new Position(0,0,0), 1);
         Volume vol2 = new Day23.Volume(new Position(0,0,0), 1);
-        assertEquals(2, vol1.intersection(vol2).get().xSide);
-        assertEquals(2, vol1.intersection(vol2).get().ySide);
-        assertEquals(2, vol1.intersection(vol2).get().zSide);
+        assertEquals(3, vol1.intersection(vol2).get().xSide);
+        assertEquals(3, vol1.intersection(vol2).get().ySide);
+        assertEquals(3, vol1.intersection(vol2).get().zSide);
+        assertEquals(27, vol1.intersection(vol2).get().cubicVolume().intValue());
         
         Volume vol3 = new Day23.Volume(new Position(1,0,0), 1);
-        assertEquals(1, vol1.intersection(vol3).get().xSide);
-        assertEquals(2, vol1.intersection(vol3).get().ySide);
-        assertEquals(2, vol1.intersection(vol3).get().zSide);
+        assertEquals(2, vol1.intersection(vol3).get().xSide);
+        assertEquals(3, vol1.intersection(vol3).get().ySide);
+        assertEquals(3, vol1.intersection(vol3).get().zSide);
+        assertEquals(18, vol1.intersection(vol3).get().cubicVolume().intValue());
     }
 }

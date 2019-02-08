@@ -7,6 +7,7 @@ import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,8 +19,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.google.common.collect.Sets;
-
-import adventofcode2018.Day23.Volume;
 
 /**
  * Definitely going about part two the wrong way. If I had looked at the input
@@ -39,14 +38,17 @@ public class Day23 {
 
     public static class Volume {
         final Position minCorner;
-        final int xSide; // note that this is inclusive
-        final int ySide; // note that this is inclusive
-        final int zSide; // note that this is inclusive
+        final int xSide;
+        final int ySide;
+        final int zSide;
 
         public Volume(Position center, int radius) {
             this.minCorner = new Position(center.x - radius, center.y - radius,
                     center.z - radius);
-            this.xSide = this.ySide = this.zSide = radius * 2;
+            this.xSide = this.ySide = this.zSide = radius * 2 + 1; // (+1 to
+                                                                   // include
+                                                                   // center
+                                                                   // point)
         }
 
         private Volume(Position minCorner, int xSide, int ySide, int zSide) {
@@ -59,6 +61,40 @@ public class Day23 {
             this.zSide = zSide;
         }
 
+        public boolean contains(Volume v) {
+            return (minCorner.x <= v.minCorner.x)
+                    & (minCorner.y <= v.minCorner.y)
+                    & (minCorner.z <= v.minCorner.z)
+                    & (minCorner.x + xSide >= v.minCorner.x + v.xSide)
+                    & (minCorner.y + ySide >= v.minCorner.y + v.ySide)
+                    & (minCorner.z + zSide >= v.minCorner.z + v.zSide);
+        }
+
+        public Volume[] quadrants() {
+            ArrayList<Volume> quadrants = new ArrayList<>();
+            //@formatter:off
+            quadrants.add(new Volume(minCorner, xSide/2, ySide/2, zSide/2));
+            if (xSide > 0)
+                quadrants.add(new Volume(new Position(minCorner.x+xSide/2+xSide%2, minCorner.y, minCorner.z), xSide/2, ySide/2, zSide/2));
+            if (ySide > 0)
+                quadrants.add(new Volume(new Position(minCorner.x, minCorner.y+ySide/2+ySide%2, minCorner.z), xSide/2, ySide/2, zSide/2));
+            if (zSide > 0)
+                quadrants.add(new Volume(new Position(minCorner.x, minCorner.y, minCorner.z+zSide/2+zSide%2), xSide/2, ySide/2, zSide/2));
+            if (xSide > 0 && ySide > 0)
+                quadrants.add(new Volume(new Position(minCorner.x+xSide/2+xSide%2, minCorner.y+ySide/2+ySide%2, minCorner.z), xSide/2, ySide/2, zSide/2));
+            if (ySide > 0 && zSide > 0)
+                quadrants.add(new Volume(new Position(minCorner.x, minCorner.y+ySide/2+ySide%2, minCorner.z+zSide/2+zSide%2), xSide/2, ySide/2, zSide/2));
+            if (xSide > 0 && zSide > 0)
+                quadrants.add(new Volume(new Position(minCorner.x+xSide/2+xSide%2, minCorner.y, minCorner.z+zSide/2+zSide%2), xSide/2, ySide/2, zSide/2));
+            if (xSide > 0 && ySide > 0 && zSide > 0)
+                quadrants.add(new Volume(new Position(minCorner.x+xSide/2+xSide%2, minCorner.y+ySide/2+ySide%2, minCorner.z+zSide/2+zSide%2), xSide/2, ySide/2, zSide/2));
+            //@formatter:on
+            return quadrants.toArray(new Volume[0]);
+        }
+
+        /**
+         * Points are inclusive here.
+         */
         public static int[] intersection(int[] a, int[] b) {
             assert a[0] <= a[1];
             assert b[0] <= b[1];
@@ -67,6 +103,8 @@ public class Day23 {
                 int[] intersection = new int[] { Integer.max(a[0], b[0]),
                         Integer.min(a[1], b[1]) };
                 assert intersection[0] <= intersection[1];
+                assert intersection[1] - intersection[0] <= a[1] - a[0];
+                assert intersection[1] - intersection[0] <= b[1] - b[0];
                 return intersection;
             } else
                 return null;
@@ -74,14 +112,14 @@ public class Day23 {
 
         Optional<Volume> intersection(Volume c) {
             int[] xIntersection = intersection(
-                    new int[] { minCorner.x, minCorner.x + xSide },
-                    new int[] { c.minCorner.x, c.minCorner.x + c.xSide });
+                    new int[] { minCorner.x, minCorner.x + xSide - 1 },
+                    new int[] { c.minCorner.x, c.minCorner.x + c.xSide - 1 });
             int[] yIntersection = intersection(
-                    new int[] { minCorner.y, minCorner.y + ySide },
-                    new int[] { c.minCorner.y, c.minCorner.y + c.ySide });
+                    new int[] { minCorner.y, minCorner.y + ySide - 1 },
+                    new int[] { c.minCorner.y, c.minCorner.y + c.ySide - 1 });
             int[] zIntersection = intersection(
-                    new int[] { minCorner.z, minCorner.z + zSide },
-                    new int[] { c.minCorner.z, c.minCorner.z + c.zSide });
+                    new int[] { minCorner.z, minCorner.z + zSide - 1 },
+                    new int[] { c.minCorner.z, c.minCorner.z + c.zSide - 1 });
             if (xIntersection == null || yIntersection == null
                     || zIntersection == null) {
                 return Optional.empty();
@@ -89,17 +127,16 @@ public class Day23 {
                 return Optional.of(new Volume(
                         new Position(xIntersection[0], yIntersection[0],
                                 zIntersection[0]),
-                        xIntersection[1] - xIntersection[0],
-                        yIntersection[1] - yIntersection[0],
-                        zIntersection[1] - zIntersection[0]));
+                        xIntersection[1] - xIntersection[0] + 1,
+                        yIntersection[1] - yIntersection[0] + 1,
+                        zIntersection[1] - zIntersection[0] + 1));
             }
 
         }
 
         BigInteger cubicVolume() {
-            return BigInteger.valueOf(xSide + 1)
-                    .multiply(BigInteger.valueOf(ySide + 1)
-                            .multiply(BigInteger.valueOf(zSide + 1)));
+            return BigInteger.valueOf(xSide).multiply(BigInteger.valueOf(ySide)
+                    .multiply(BigInteger.valueOf(zSide)));
         }
 
         @Override
@@ -152,10 +189,6 @@ public class Day23 {
             return new Volume(this, signalRadius);
         }
 
-        PointsInRange pointsInRange() {
-            return new PointsInRange(this);
-        }
-
         public static Nanobot parse(String line) {
             Pattern pattern = Pattern
                     .compile("pos=<([0-9-]+),([0-9-]+),([0-9-]+)>, r=(\\d+)");
@@ -167,132 +200,21 @@ public class Day23 {
                     Integer.valueOf(matcher.group(4)));
         }
 
-        static class PointsInRange
-                implements Iterable<Position>, Iterator<Position> {
-
-            private int x, y, z;
-            private Nanobot nanobot;
-
-            PointsInRange(Nanobot b) {
-                this.nanobot = b;
-                this.x = b.x - b.signalRadius;
-                this.y = b.y - b.signalRadius;
-                this.z = b.z - b.signalRadius;
-
-                while (!inRange())
-                    if (!advance())
-                        break;
-            }
-
-            private boolean inRange() {
-                return nanobot.inRange(new Position(this.x, this.y, this.z));
-            }
-
-            /**
-             * Advance to next allowed position, not necessarily in range.
-             * Returns false at end of iteration.
-             * 
-             * TODO: this is inefficient.
-             * 
-             * @return
-             */
-            private boolean advance() {
-                if (x == nanobot.signalRadius + nanobot.x
-                        && y == nanobot.signalRadius + nanobot.y
-                        && z == nanobot.signalRadius + nanobot.z)
-                    return false;
-
-                x += 1;
-                if (x > nanobot.x + nanobot.signalRadius) {
-                    x = nanobot.x - nanobot.signalRadius;
-                    y += 1;
-                    if (y > nanobot.y + nanobot.signalRadius) {
-                        y = nanobot.y - nanobot.signalRadius;
-                        z += 1;
-                    }
-                }
-                return true;
-            }
-
-            @Override
-            public Iterator<Position> iterator() {
-                return this;
-            }
-
-            @Override
-            public boolean hasNext() {
-                return inRange();
-            }
-
-            @Override
-            public Position next() {
-                if (!inRange())
-                    return null;
-                Position position = new Position(x, y, z);
-
-                // advance to next valid state
-                do {
-                    if (!advance())
-                        break;
-                } while (!inRange());
-                return position;
-            }
-
-        }
-    }
-
-    static HashMap<HashSet<Nanobot>, Volume> findNewOverlaps(
-            HashMap<HashSet<Nanobot>, Volume> oldOverlaps, List<Nanobot> bots) {
-        HashMap<HashSet<Nanobot>, Volume> newOverlaps = new HashMap<>();
-        for (var entry : oldOverlaps.entrySet()) {
+        public static Volume containingVolume(Collection<Nanobot> bots) {
+            int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE,
+                    maxZ = Integer.MIN_VALUE, minX = Integer.MAX_VALUE,
+                    minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
             for (Nanobot b : bots) {
-                if (entry.getKey().contains(b))
-                    continue;
-
-                Optional<Volume> signalOverlap = entry.getValue()
-                        .intersection(b.signalRangeVolume());
-                if (signalOverlap.isPresent()) {
-                    HashSet<Nanobot> newEntry = Sets.newHashSet(b);
-                    newEntry.addAll(entry.getKey());
-                    newOverlaps.put(newEntry, signalOverlap.get());
-                    System.out.println(
-                            newEntry.size() + " : " + newOverlaps.size());
-                }
+                maxX = Integer.max(maxX, b.x);
+                maxY = Integer.max(maxY, b.y);
+                maxZ = Integer.max(maxZ, b.z);
+                minX = Integer.min(minX, b.x);
+                minY = Integer.min(minY, b.y);
+                minZ = Integer.min(minZ, b.z);
             }
+            return new Volume(new Position(minX, minY, minZ), maxX - minX + 1,
+                    maxY - minY + 1, maxZ - minZ + 1);
         }
-
-        if (newOverlaps.size() > 0) {
-            newOverlaps.putAll(findNewOverlaps(newOverlaps, bots));
-        }
-
-        return newOverlaps;
-    }
-
-    static HashSet<Nanobot> mostIntersections(HashSet<Nanobot> soFar,
-            Volume volume, List<Nanobot> bots) {
-        HashSet<Nanobot> bestCandidate = new HashSet<>();
-        for (int i = 0; i < bots.size(); ++i) {
-            Nanobot b = bots.get(i);
-            if (!soFar.contains(b)) {
-                Optional<Volume> intersection = volume
-                        .intersection(b.signalRangeVolume());
-                if (intersection.isPresent()) {
-                    HashSet<Nanobot> newSoFar = new HashSet<>(soFar);
-                    newSoFar.add(b);
-
-                    HashSet<Nanobot> candidate = mostIntersections(newSoFar,
-                            intersection.get(),
-                            bots.subList(i + 1, bots.size()));
-                    if (candidate.size() > bestCandidate.size())
-                        bestCandidate = candidate;
-                    System.out.println(
-                            newSoFar.size() + ":" + bestCandidate.size() + ":"
-                                    + volume.cubicVolume());
-                }
-            }
-        }
-        bestCandidate.addAll(soFar);
-        return bestCandidate;
     }
 
     public static void main(String[] args) throws IOException {
@@ -307,6 +229,26 @@ public class Day23 {
                 .count();
         System.out.println("Part one: " + numInRange);
 
+        // remove any bots contained in another
+        HashSet<Nanobot> toRemove = new HashSet<>();
+        HashMap<Nanobot, Integer> botsContainedBy = new HashMap<>();
+        for (Nanobot b1 : bots) {
+            for (Nanobot b2 : bots) {
+                if (!b1.equals(b2) && b1.signalRangeVolume()
+                        .contains(b2.signalRangeVolume())) {
+                    toRemove.add(b2);
+                    Integer b1Count = botsContainedBy.get(b1);
+                    if (b1Count == null)
+                        botsContainedBy.put(b1, 1);
+                    else
+                        botsContainedBy.put(b1, b1Count + 1);
+                }
+            }
+        }
+
+        System.out.println("Bots contained in other bots:" + toRemove.size());
+        System.out.println("Bot contained count:" + botsContainedBy);
+
         int n = 5;
         ArrayList<Nanobot> mostConnectedBots = bots.stream()
                 .sorted((b1, b2) -> Long.compare(botsInRange(bots, b1),
@@ -316,9 +258,15 @@ public class Day23 {
         Collections.reverse(mostConnectedBots);
         for (var b : mostConnectedBots)
             System.out.println(botsInRange(bots, b) + ":" + b);
-        System.out.println(
-                mostIntersections(Sets.newHashSet(mostConnectedBots.get(0)),
-                        mostConnectedBots.get(0).signalRangeVolume(), bots));
+
+        // HashSet<HashSet<Nanobot>> solutions = new HashSet<>();
+        // for (int i = 0; i < mostConnectedBots.size(); ++i) {
+        // System.out.println(i);
+        // solutions.add(
+        // mostIntersections(Sets.newHashSet(mostConnectedBots.get(0)),
+        // mostConnectedBots.get(0).signalRangeVolume(),
+        // bots.subList(i + 1, bots.size())));
+        // }
     }
 
     private static long botsInRange(List<Nanobot> bots, Nanobot b) {
