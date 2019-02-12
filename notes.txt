@@ -1,0 +1,9 @@
+if iscontained(p):
+    return true
+
+else:
+    d = radius
+    d -= distance_from_x_edge(p)
+    d -= distance_from_y_edge(p)
+    d -= distance_from_z_edge(p)
+    return d >= 0

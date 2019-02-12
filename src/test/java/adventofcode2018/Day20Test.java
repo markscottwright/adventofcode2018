@@ -68,7 +68,7 @@ public class Day20Test {
 
     @Test
     public void testParsingInputData() throws ParsingException, IOException {
-        Chain c = Chain.parse(
+        Chain.parse(
                 new String(Files.readAllBytes(Paths.get("data", "day20.txt"))));
     }
 
@@ -76,30 +76,30 @@ public class Day20Test {
     public void testSampleData() throws ParsingException {
         Chain chain = Chain
                 .parse("^ESSWWN(E|NNENN(EESS(WNSE|)SSS|WWWSSSSE(SW|NNNE)))$");
-        
-        HashSet<PointPair> doors = chain.walkPath(new Point(0,0));
+
+        HashSet<PointPair> doors = chain.walkPath(new Point(0, 0));
         System.out.println(doors);
-        
-        new Day20.NorthPoleMap(new Point(0,0), doors).print(System.out);
+
+        new Day20.NorthPoleMap(new Point(0, 0), doors).print(System.out);
     }
-    
+
     @Test
     public void testMap() {
         HashSet<PointPair> doors = new HashSet<>();
-        doors.add(new PointPair(new Point(-3,-3), new Point(-3, -2)));
-        doors.add(new PointPair(new Point(4,4), new Point(5, 4)));
-        
-        new Day20.NorthPoleMap(new Point(0,0), doors).print(System.out);
+        doors.add(new PointPair(new Point(-3, -3), new Point(-3, -2)));
+        doors.add(new PointPair(new Point(4, 4), new Point(5, 4)));
+
+        new Day20.NorthPoleMap(new Point(0, 0), doors).print(System.out);
     }
 
     @Test
     public void testWalk() {
         HashSet<PointPair> doors = new HashSet<>();
-        Point origin = new Point(0,0);
+        Point origin = new Point(0, 0);
         doors.add(new PointPair(origin, origin.e()));
         doors.add(new PointPair(origin, origin.n()));
         doors.add(new PointPair(origin.e(), origin.e().e()));
-        
+
         new Day20.NorthPoleMap(origin, doors).print(System.out);
     }
 }
