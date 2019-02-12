@@ -7,44 +7,34 @@ import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import org.javatuples.Pair;
-
-import adventofcode2018.Day23.Nanobot;
-import adventofcode2018.Day23.Volume;
-import adventofcode2018.Day23.VolumeAndNumConnections;
-
-/**
- * Definitely going about part two the wrong way. If I had looked at the input
- * data, it would be obvious that enumerating all points in range was not
- * feasible.
- * 
- * Check out the Separating Axis Theory
- * <p>
- * http://www.dyn4j.org/2010/01/sat/
- * <p>
- * https://en.wikipedia.org/wiki/Hyperplane_separation_theorem
- * 
- * @author mwright
- *
- */
 public class Day23 {
 
-    static public class VolumeAndNumConnections
-            implements Comparable<VolumeAndNumConnections> {
+    /**
+     * A 3D volume and all of the Nanobots that can reach it
+     * 
+     * @author mwright
+     *
+     */
+    static public class VolumeAndConnections
+            implements Comparable<VolumeAndConnections> {
+        @Override
+        public String toString() {
+            return "VolumeAndNumConnections [volume=" + volume
+                    + ", numConnectedBots=" + connectedBots.size() + "]";
+        }
+
         final Volume volume;
         final List<Nanobot> connectedBots;
         final static Position ORIGIN = new Position(0, 0, 0);
 
-        public VolumeAndNumConnections(Volume volume, List<Nanobot> bots) {
+        public VolumeAndConnections(Volume volume, List<Nanobot> bots) {
             this.volume = volume;
             this.connectedBots = bots;
         }
@@ -54,22 +44,32 @@ public class Day23 {
         }
 
         @Override
-        public int compareTo(VolumeAndNumConnections o) {
+        public int compareTo(VolumeAndConnections o) {
             int compare = Integer.compare(connectedBots.size(),
                     o.connectedBots.size());
             if (compare == 0)
-                return Integer.compare(volume.distanceFrom(ORIGIN),
+                return -Integer.compare(volume.distanceFrom(ORIGIN),
                         o.volume.distanceFrom(ORIGIN));
             else
-                return compare;
+                return -compare;
         }
 
-        public boolean isBetter(VolumeAndNumConnections o) {
+        public boolean isBetter(VolumeAndConnections o) {
             return compareTo(o) < 0;
+        }
+
+        public int distanceFromOrigin() {
+            return ORIGIN.distance(this.volume.minCorner);
         }
 
     }
 
+    /**
+     * A 3d area of space. Measured in "blocks".
+     * 
+     * @author mwright
+     *
+     */
     public static class Volume {
         final Position minCorner;
 
@@ -124,15 +124,6 @@ public class Day23 {
             return distance;
         }
 
-        public boolean contains(Volume v) {
-            return (minCorner.x <= v.minCorner.x)
-                    & (minCorner.y <= v.minCorner.y)
-                    & (minCorner.z <= v.minCorner.z)
-                    & (minCorner.x + xSide >= v.minCorner.x + v.xSide)
-                    & (minCorner.y + ySide >= v.minCorner.y + v.ySide)
-                    & (minCorner.z + zSide >= v.minCorner.z + v.zSide);
-        }
-
         public Volume[] quadrants() {
             ArrayList<Volume> quadrants = new ArrayList<>();
             int xSide1 = xSide / 2 + xSide % 2;
@@ -176,34 +167,6 @@ public class Day23 {
             }
         }
 
-        Optional<Volume> intersection(Volume c) {
-
-            // sides are "inclusive". A point as a side of 1, so subtract 1 from
-            // side to get the point value of a point one side away
-            int[] xIntersection = intersection(
-                    new int[] { minCorner.x, minCorner.x + xSide - 1 },
-                    new int[] { c.minCorner.x, c.minCorner.x + c.xSide - 1 });
-            int[] yIntersection = intersection(
-                    new int[] { minCorner.y, minCorner.y + ySide - 1 },
-                    new int[] { c.minCorner.y, c.minCorner.y + c.ySide - 1 });
-            int[] zIntersection = intersection(
-                    new int[] { minCorner.z, minCorner.z + zSide - 1 },
-                    new int[] { c.minCorner.z, c.minCorner.z + c.zSide - 1 });
-            if (xIntersection == null || yIntersection == null
-                    || zIntersection == null) {
-                return Optional.empty();
-            } else {
-                // again, inclusive points, so sides need to have one added
-                return Optional.of(new Volume(
-                        new Position(xIntersection[0], yIntersection[0],
-                                zIntersection[0]),
-                        xIntersection[1] - xIntersection[0] + 1,
-                        yIntersection[1] - yIntersection[0] + 1,
-                        zIntersection[1] - zIntersection[0] + 1));
-            }
-
-        }
-
         BigInteger cubicVolume() {
             return BigInteger.valueOf(xSide).multiply(BigInteger.valueOf(ySide)
                     .multiply(BigInteger.valueOf(zSide)));
@@ -216,6 +179,12 @@ public class Day23 {
         }
     }
 
+    /**
+     * A 3D position in space, measuring distances in "manhattan" measurements
+     * 
+     * @author mwright
+     *
+     */
     public static class Position {
         @Override
         public String toString() {
@@ -267,6 +236,7 @@ public class Day23 {
         }
     }
 
+    /** Essentially, a position and a signal radius */
     public static class Nanobot extends Position {
         @Override
         public String toString() {
@@ -329,269 +299,52 @@ public class Day23 {
                 .count();
         System.out.println("Part one: " + numInRange);
 
-        Volume totalVolume = Nanobot.containingVolume(bots);
-        BestPositionFinder finder = new BestPositionFinder();
-        finder.find2(totalVolume, bots);
-        System.out.println(finder.getMostBotsInRange());
+        VolumeAndConnections solution = findMostConnectedSpaceNearestOrigin(
+                bots);
+        System.out.println("Part two: " + solution.distanceFromOrigin());
     }
 
-    static class BestPositionFinder {
-        private static final Position ORIGIN = new Position(0, 0, 0);
-        private int mostBotsInRange = 0;
-        private ArrayList<Position> mostConnectedPositions = new ArrayList<>();
-        private Position mostConnectedPosition = null;
+    static VolumeAndConnections findMostConnectedSpaceNearestOrigin(
+            List<Nanobot> bots) {
+        Volume containingVolume = Nanobot.containingVolume(bots);
+        PriorityQueue<VolumeAndConnections> considering = new PriorityQueue<>();
 
-        void find3(List<Nanobot> bots) {
-            Volume containingVolume = Nanobot.containingVolume(bots);
-            PriorityQueue<VolumeAndNumConnections> considering = new PriorityQueue<>();
+        VolumeAndConnections solution = null;
+        considering.add(new VolumeAndConnections(containingVolume, bots));
 
-            VolumeAndNumConnections solution = null;
-            considering
-                    .add(new VolumeAndNumConnections(containingVolume, bots));
+        while (considering.size() > 0) {
+            VolumeAndConnections next = considering.remove();
+            if (solution != null && solution.isBetter(next)) {
+                continue;
+            }
 
-            while (considering.size() > 0) {
-                VolumeAndNumConnections next = considering.remove();
-                if (solution.isBetter(next))
-                    continue;
-
-                Volume[] quadrants = next.getVolume().quadrants();
-                for (Volume quadrant : quadrants) {
-                    if (quadrant.isPoint()) {
-                        List<Nanobot> botsInRange = botsInRange(bots,
-                                quadrant.minCorner);
-                        VolumeAndNumConnections maybeNext = new VolumeAndNumConnections(
-                                quadrant, botsInRange);
-                        if (solution == null || maybeNext .isBetter(solution)) {
-                            solution = maybeNext;
-                        }
+            Volume[] quadrants = next.getVolume().quadrants();
+            for (Volume quadrant : quadrants) {
+                if (quadrant.isPoint()) {
+                    // use distance from point here
+                    List<Nanobot> botsInRange = bots.stream()
+                            .filter(b -> b.inRange(quadrant.minCorner))
+                            .collect(Collectors.toList());
+                    VolumeAndConnections maybeNext = new VolumeAndConnections(
+                            quadrant, botsInRange);
+                    if (solution == null || maybeNext.isBetter(solution)) {
+                        solution = maybeNext;
+                    }
+                } else {
+                    List<Nanobot> botsInRange = bots.stream().filter(b -> {
+                        return quadrant.distanceFrom(b) <= b.signalRadius;
+                    }).collect(Collectors.toList());
+                    VolumeAndConnections maybeNext = new VolumeAndConnections(
+                            quadrant, botsInRange);
+                    if (solution == null) {
+                        considering.add(maybeNext);
+                    } else if (!solution.isBetter(maybeNext)) {
+                        considering.add(maybeNext);
                     }
                 }
             }
         }
-
-        void find2(Volume vol, List<Nanobot> bots) {
-
-            Volume[] quadrants = vol.quadrants();
-            ArrayList<Pair<Volume, List<Nanobot>>> botsInRangeOfQuadrant = new ArrayList<>();
-            for (Volume quadrant : quadrants) {
-                if (quadrant.isPoint()) {
-                    // use the real value instead of an estimate
-                    botsInRangeOfQuadrant.add(Pair.with(quadrant,
-                            botsInRange(bots, quadrant.minCorner)));
-                } else {
-                    botsInRangeOfQuadrant.add(Pair.with(quadrant,
-                            bots.stream()
-                                    .filter(b -> quadrant
-                                            .distanceFrom(b) <= b.signalRadius)
-                                    .collect(Collectors.toList())));
-                }
-            }
-
-            // sort from most predicted quadrant
-            botsInRangeOfQuadrant.sort((b1, b2) -> -Integer
-                    .compare(b1.getValue1().size(), b2.getValue1().size()));
-
-            // no quadrant has more than our best solution so far
-            if (botsInRangeOfQuadrant.size() < 1 || botsInRangeOfQuadrant.get(0)
-                    .getValue1().size() < mostBotsInRange)
-                return;
-
-            for (var volumeAndBots : botsInRangeOfQuadrant) {
-                // if a volume isn't any better that a found solution, and its
-                // further from the origin than a solution we know, ignore it
-                if (mostConnectedPosition != null
-                        && volumeAndBots.getValue1()
-                                .size() == this.mostBotsInRange
-                        && volumeAndBots.getValue0()
-                                .distanceFrom(ORIGIN) > ORIGIN
-                                        .distance(mostConnectedPosition))
-                    continue;
-
-                // done as best we can, drop out
-                if (volumeAndBots.getValue1().size() == 0
-                        || volumeAndBots.getValue1().size() < mostBotsInRange) {
-                    return;
-                }
-
-                // found another equally good point
-                else if (volumeAndBots.getValue0().isPoint() && volumeAndBots
-                        .getValue1().size() == mostBotsInRange) {
-                    if (volumeAndBots.getValue0().minCorner.distance(
-                            ORIGIN) < mostConnectedPosition.distance(ORIGIN))
-                        mostConnectedPosition = volumeAndBots
-                                .getValue0().minCorner;
-                }
-
-                // even better solution
-                else if (volumeAndBots.getValue0().isPoint()
-                        && volumeAndBots.getValue1().size() > mostBotsInRange) {
-                    mostBotsInRange = volumeAndBots.getValue1().size();
-                    mostConnectedPosition = volumeAndBots.getValue0().minCorner;
-                    System.out.println(this.mostBotsInRange + ":"
-                            + this.mostConnectedPosition + ":" + vol);
-                }
-
-                // potentially better solution, but need to drill down
-                else {
-                    assert !volumeAndBots.getValue0().isPoint();
-                    assert volumeAndBots.getValue1().size() >= mostBotsInRange;
-
-                    find2(volumeAndBots.getValue0(), volumeAndBots.getValue1());
-                }
-            }
-        }
-
-        void find(Volume vol, List<Nanobot> bots) {
-
-            Volume[] quadrants = vol.quadrants();
-            ArrayList<Pair<Volume, List<Nanobot>>> botsInRangeOfQuadrant = new ArrayList<>();
-            for (Volume quadrant : quadrants) {
-                if (quadrant.isPoint()) {
-                    // use the real value instead of an estimate
-                    botsInRangeOfQuadrant.add(Pair.with(quadrant,
-                            botsInRange(bots, quadrant.minCorner)));
-                } else {
-                    botsInRangeOfQuadrant.add(
-                            Pair.with(quadrant, botsInRange(bots, quadrant)));
-                }
-            }
-
-            // sort from most predicted quadrant
-            botsInRangeOfQuadrant.sort((b1, b2) -> -Integer
-                    .compare(b1.getValue1().size(), b2.getValue1().size()));
-
-            // no quadrant has more than our best solution so far
-            if (botsInRangeOfQuadrant.size() < 1 || botsInRangeOfQuadrant.get(0)
-                    .getValue1().size() < mostBotsInRange)
-                return;
-
-            for (var volumeAndBots : botsInRangeOfQuadrant) {
-                // done as best we can, drop out
-                if (volumeAndBots.getValue1().size() == 0
-                        || volumeAndBots.getValue1().size() < mostBotsInRange) {
-                    return;
-                }
-
-                // found another equally good point
-                else if (volumeAndBots.getValue0().isPoint() && volumeAndBots
-                        .getValue1().size() == mostBotsInRange) {
-                    mostConnectedPositions
-                            .add(volumeAndBots.getValue0().minCorner);
-                }
-
-                // even better solution
-                else if (volumeAndBots.getValue0().isPoint()
-                        && volumeAndBots.getValue1().size() > mostBotsInRange) {
-                    mostBotsInRange = volumeAndBots.getValue1().size();
-                    mostConnectedPositions = new ArrayList<>();
-                    mostConnectedPositions
-                            .add(volumeAndBots.getValue0().minCorner);
-                }
-
-                // potentially better solution, but need to drill down
-                else {
-                    assert !volumeAndBots.getValue0().isPoint();
-                    assert volumeAndBots.getValue1().size() >= mostBotsInRange;
-
-                    find(volumeAndBots.getValue0(), volumeAndBots.getValue1());
-                }
-            }
-        }
-
-        public int getMostBotsInRange() {
-            return mostBotsInRange;
-        }
-
-        public ArrayList<Position> getMostConnectedPositions() {
-            return mostConnectedPositions;
-        }
-
+        return solution;
     }
 
-    static Pair<Integer, ArrayList<Position>> findMostConnectedPositions(
-            Volume totalVolume, List<Nanobot> bots) {
-        Volume[] quadrants = totalVolume.quadrants();
-        ArrayList<Pair<Volume, List<Nanobot>>> botsInRangeOfQuadrant = new ArrayList<>();
-        for (Volume quadrant : quadrants) {
-            if (quadrant.isPoint()) {
-                // use the real value instead of an estimate
-                botsInRangeOfQuadrant.add(Pair.with(quadrant,
-                        botsInRange(bots, quadrant.minCorner)));
-            } else {
-                botsInRangeOfQuadrant
-                        .add(Pair.with(quadrant, botsInRange(bots, quadrant)));
-            }
-        }
-
-        // sort from most predicted quadrant
-        botsInRangeOfQuadrant.sort((b1, b2) -> -Integer
-                .compare(b1.getValue1().size(), b2.getValue1().size()));
-
-        ArrayList<Position> solution = new ArrayList<>();
-        int numConnectionsInBestSolution = 0;
-        for (int i = 0; i < botsInRangeOfQuadrant.size(); ++i) {
-            Pair<Volume, List<Nanobot>> volumeAndBots = botsInRangeOfQuadrant
-                    .get(i);
-            // done as best we can, drop out
-            if (volumeAndBots.getValue1().size() == 0 || volumeAndBots
-                    .getValue1().size() < numConnectionsInBestSolution) {
-                return Pair.with(numConnectionsInBestSolution, solution);
-            }
-
-            // found another equally good point
-            else if (volumeAndBots.getValue0().isPoint() && volumeAndBots
-                    .getValue1().size() == numConnectionsInBestSolution) {
-                solution.add(volumeAndBots.getValue0().minCorner);
-            }
-
-            // even better solution
-            else if (volumeAndBots.getValue0().isPoint() && volumeAndBots
-                    .getValue1().size() > numConnectionsInBestSolution) {
-                numConnectionsInBestSolution = volumeAndBots.getValue1().size();
-                solution = new ArrayList<>();
-                solution.add(volumeAndBots.getValue0().minCorner);
-            }
-
-            // potentially better solution, but need to drill down
-            else {
-                assert !volumeAndBots.getValue0().isPoint();
-                assert volumeAndBots.getValue1()
-                        .size() >= numConnectionsInBestSolution;
-
-                Pair<Integer, ArrayList<Position>> potentialSolution = findMostConnectedPositions(
-                        volumeAndBots.getValue0(), volumeAndBots.getValue1());
-
-                // found a better solution
-                if (potentialSolution
-                        .getValue0() > numConnectionsInBestSolution) {
-                    numConnectionsInBestSolution = potentialSolution
-                            .getValue0();
-                    solution = potentialSolution.getValue1();
-                }
-
-                // found more points equally good
-                else if (potentialSolution
-                        .getValue0() == numConnectionsInBestSolution) {
-                    solution.addAll(potentialSolution.getValue1());
-                }
-            }
-        }
-
-        return Pair.with(numConnectionsInBestSolution, solution);
-    }
-
-    private static List<Nanobot> botsInRange(List<Nanobot> bots, Position pos) {
-        List<Nanobot> botsInRangeOfPoint = bots.stream()
-                .filter(b -> b.inRange(pos)).collect(Collectors.toList());
-        return botsInRangeOfPoint;
-    }
-
-    static List<Nanobot> botsInRange(List<Nanobot> bots,
-            Volume signalRangeVolume) {
-        return bots.stream().filter(b2 -> {
-            boolean present = signalRangeVolume
-                    .intersection(b2.signalRangeVolume()).isPresent();
-            return present;
-        }).collect(Collectors.toList());
-    }
 }
